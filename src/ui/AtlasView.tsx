@@ -31,6 +31,7 @@ import { eventsAtYear, type HistoricalEvent } from "../historicalEvents";
 import { useFocusSet } from "./useFocusSet";
 import type { GlobeInstance } from "../globals";
 import { loadCities } from "../cities";
+import { assetUrl } from "../assets";
 
 type Speed = 0.5 | 1 | 2 | 5 | 10;
 type TourMode = "off" | "life";
@@ -370,8 +371,8 @@ export function AtlasView() {
 
       const rect = el.getBoundingClientRect();
       const globe = GlobeCtor()
-        .globeImageUrl("/textures/earth-blue-marble.jpg")
-        .bumpImageUrl("/textures/earth-topology.png")
+        .globeImageUrl(assetUrl("/textures/earth-blue-marble.jpg"))
+        .bumpImageUrl(assetUrl("/textures/earth-topology.png"))
         .backgroundColor("#02030a")
         .showAtmosphere(true)
         .atmosphereColor("#89c7ff")

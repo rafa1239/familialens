@@ -18,6 +18,7 @@
  *   }
  */
 
+import { assetUrl } from "./assets";
 import { levenshtein, normalizeName } from "./places";
 
 export type City = {
@@ -42,7 +43,7 @@ let citiesSync: City[] | null = null;
 export async function loadCities(): Promise<City[]> {
   if (citiesSync) return citiesSync;
   if (!citiesPromise) {
-    citiesPromise = fetch("/data/cities.json")
+    citiesPromise = fetch(assetUrl("/data/cities.json"))
       .then((res) => {
         if (!res.ok) throw new Error(`Failed to load cities: ${res.status}`);
         return res.json();
