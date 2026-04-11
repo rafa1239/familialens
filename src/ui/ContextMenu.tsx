@@ -1,110 +1,70 @@
 import { useEffect, useRef } from "react";
-import { useStore } from "../store";
 
-export function ContextMenu() {
-  const ctx = useStore((s) => s.contextMenu);
-  const data = useStore((s) => s.data);
-  const {
-    setContextMenu,
-    createRelative,
-    setLinkMode,
-    deletePerson,
-    setStatusMessage,
-    selectOnly
-  } = useStore();
+export type MenuItem =
+  | { kind: "action"; label: string; onClick: () => void; danger?: boolean; disabled?: boolean }
+  | { kind: "separator" };
+
+export function ContextMenu({
+  x,
+  y,
+  items,
+  onClose
+}: {
+  x: number;
+  y: number;
+  items: MenuItem[];
+  onClose: () => void;
+}) {
   const ref = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    if (!ctx) return;
-    const close = () => setContextMenu(null);
-    const handleKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") close();
+    const handleOutside = (e: MouseEvent) => {
+      if (ref.current && !ref.current.contains(e.target as Node)) onClose();
     };
-    window.addEventListener("pointerdown", close);
-    window.addEventListener("keydown", handleKey);
+    const handleEsc = (e: KeyboardEvent) => {
+      if (e.key === "Escape") onClose();
+    };
+    document.addEventListener("mousedown", handleOutside);
+    document.addEventListener("keydown", handleEsc);
     return () => {
-      window.removeEventListener("pointerdown", close);
-      window.removeEventListener("keydown", handleKey);
+      document.removeEventListener("mousedown", handleOutside);
+      document.removeEventListener("keydown", handleEsc);
     };
-  }, [ctx, setContextMenu]);
+  }, [onClose]);
 
-  if (!ctx) return null;
-
-  const person = data.people[ctx.targetId];
-  if (!person) return null;
-
-  const handle = (fn: () => void) => (e: React.MouseEvent) => {
-    e.stopPropagation();
-    fn();
-    setContextMenu(null);
-  };
-
-  const addRelative = (relation: "parent" | "child" | "spouse") => {
-    const result = createRelative(ctx.targetId, relation);
-    if (!result.ok) setStatusMessage(result.reason);
-    else {
-      selectOnly(result.id);
-      window.dispatchEvent(
-        new CustomEvent("familialens:focus", {
-          detail: { targetId: result.id }
-        })
-      );
-      setStatusMessage(
-        `Added ${relation === "parent" ? "a parent" : relation === "child" ? "a child" : "a spouse"}.`
-      );
-    }
-  };
-
-  const jumpTo = () => {
-    selectOnly(ctx.targetId);
-    window.dispatchEvent(
-      new CustomEvent("familialens:focus", {
-        detail: { targetId: ctx.targetId }
-      })
-    );
-  };
+  // Clamp to viewport
+  const style: React.CSSProperties = { left: x, top: y };
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    const rect = el.getBoundingClientRect();
+    const vw = window.innerWidth;
+    const vh = window.innerHeight;
+    if (rect.right > vw) el.style.left = `${vw - rect.width - 8}px`;
+    if (rect.bottom > vh) el.style.top = `${vh - rect.height - 8}px`;
+  }, []);
 
   return (
-    <div
-      ref={ref}
-      className="context-menu"
-      style={{ left: ctx.x, top: ctx.y }}
-      onPointerDown={(e) => e.stopPropagation()}
-    >
-      <button onClick={handle(jumpTo)}>Center on {person.name || "person"}</button>
-      <div className="menu-divider" />
-      <button onClick={handle(() => addRelative("parent"))}>Add Parent</button>
-      <button onClick={handle(() => addRelative("child"))}>Add Child</button>
-      <button onClick={handle(() => addRelative("spouse"))}>Add Spouse</button>
-      <div className="menu-divider" />
-      <button
-        onClick={handle(() => {
-          setLinkMode("parent", ctx.targetId);
-          setStatusMessage("Click another person to link as parent.");
-        })}
-      >
-        Start Parent Link
-      </button>
-      <button
-        onClick={handle(() => {
-          setLinkMode("spouse", ctx.targetId);
-          setStatusMessage("Click another person to link as spouse.");
-        })}
-      >
-        Start Spouse Link
-      </button>
-      <div className="menu-divider" />
-      <button
-        className="danger-item"
-        onClick={handle(() => {
-          if (window.confirm(`Delete ${person.name || "this person"}?`)) {
-            deletePerson(person.id);
-            setStatusMessage("Person deleted.");
-          }
-        })}
-      >
-        Delete
-      </button>
+    <div ref={ref} className="context-menu" style={style} role="menu">
+      {items.map((item, i) => {
+        if (item.kind === "separator") {
+          return <div key={`sep-${i}`} className="context-sep" />;
+        }
+        return (
+          <button
+            key={`it-${i}`}
+            className={`context-item ${item.danger ? "danger" : ""}`}
+            disabled={item.disabled}
+            onClick={() => {
+              if (item.disabled) return;
+              item.onClick();
+              onClose();
+            }}
+          >
+            {item.label}
+          </button>
+        );
+      })}
     </div>
   );
 }

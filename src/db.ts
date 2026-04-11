@@ -1,59 +1,65 @@
-import { DataState, Operation } from "./types";
+import { openDB, type IDBPDatabase } from "idb";
+import type { DataState } from "./types";
 
-const DB_NAME = "familialens_v6";
+const DB_NAME = "familialens_v7";
 const DB_VERSION = 1;
 const SNAPSHOT_KEY = "current";
 
-let dbPromise: Promise<IDBDatabase> | null = null;
+interface Schema {
+  snapshot: {
+    key: string;
+    value: DataState;
+  };
+  photos: {
+    key: string;
+    value: Blob;
+  };
+}
 
-function openDb(): Promise<IDBDatabase> {
-  if (dbPromise) return dbPromise;
-  dbPromise = new Promise((resolve, reject) => {
-    const request = indexedDB.open(DB_NAME, DB_VERSION);
-    request.onupgradeneeded = () => {
-      const db = request.result;
-      if (!db.objectStoreNames.contains("snapshot")) {
-        db.createObjectStore("snapshot");
+let dbPromise: Promise<IDBPDatabase<Schema>> | null = null;
+
+function db() {
+  if (!dbPromise) {
+    dbPromise = openDB<Schema>(DB_NAME, DB_VERSION, {
+      upgrade(db) {
+        if (!db.objectStoreNames.contains("snapshot")) {
+          db.createObjectStore("snapshot");
+        }
+        if (!db.objectStoreNames.contains("photos")) {
+          db.createObjectStore("photos");
+        }
       }
-      if (!db.objectStoreNames.contains("oplog")) {
-        db.createObjectStore("oplog", { keyPath: "id" });
-      }
-    };
-    request.onsuccess = () => resolve(request.result);
-    request.onerror = () => reject(request.error);
-  });
+    });
+  }
   return dbPromise;
 }
 
 export async function loadSnapshot(): Promise<DataState | null> {
-  const db = await openDb();
-  return new Promise((resolve, reject) => {
-    const tx = db.transaction("snapshot", "readonly");
-    const store = tx.objectStore("snapshot");
-    const req = store.get(SNAPSHOT_KEY);
-    req.onsuccess = () => resolve((req.result as DataState) ?? null);
-    req.onerror = () => reject(req.error);
-  });
+  try {
+    const d = await db();
+    const value = await d.get("snapshot", SNAPSHOT_KEY);
+    return value ?? null;
+  } catch {
+    return null;
+  }
 }
 
 export async function saveSnapshot(snapshot: DataState): Promise<void> {
-  const db = await openDb();
-  return new Promise((resolve, reject) => {
-    const tx = db.transaction("snapshot", "readwrite");
-    const store = tx.objectStore("snapshot");
-    const req = store.put(snapshot, SNAPSHOT_KEY);
-    req.onsuccess = () => resolve();
-    req.onerror = () => reject(req.error);
-  });
+  const d = await db();
+  await d.put("snapshot", snapshot, SNAPSHOT_KEY);
 }
 
-export async function appendOp(op: Operation): Promise<void> {
-  const db = await openDb();
-  return new Promise((resolve, reject) => {
-    const tx = db.transaction("oplog", "readwrite");
-    const store = tx.objectStore("oplog");
-    const req = store.put(op);
-    req.onsuccess = () => resolve();
-    req.onerror = () => reject(req.error);
-  });
+export async function savePhoto(id: string, blob: Blob): Promise<void> {
+  const d = await db();
+  await d.put("photos", blob, id);
+}
+
+export async function loadPhoto(id: string): Promise<Blob | undefined> {
+  const d = await db();
+  return await d.get("photos", id);
+}
+
+export async function deletePhoto(id: string): Promise<void> {
+  const d = await db();
+  await d.delete("photos", id);
 }

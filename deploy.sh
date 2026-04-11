@@ -8,7 +8,6 @@ PORTFOLIO="../raphaelaltieri.com/public/familialens"
 
 if [ ! -d "../raphaelaltieri.com/public" ]; then
   echo "Error: raphaelaltieri.com/public not found as sibling directory."
-  echo "Expected structure: CODE2/familialens and CODE2/raphaelaltieri.com side by side."
   exit 1
 fi
 

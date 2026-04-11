@@ -8,7 +8,7 @@ export default defineConfig(({ command }) => ({
   plugins: [react()],
   base: command === "build" ? "/familialens/" : "/",
   server: {
-    port: 5176,
+    port: 5177,
     host: true
   }
 }));
