@@ -16,7 +16,7 @@
  * The globe's Three.js scene is augmented with a star field for depth.
  */
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState, useCallback } from "react";
 import { useStore } from "../store";
 import {
   atlasYearBounds,
@@ -32,6 +32,7 @@ import { useFocusSet } from "./useFocusSet";
 import type { GlobeInstance } from "../globals";
 import { loadCities } from "../cities";
 import { assetUrl } from "../assets";
+import { DEMO_DATASET_ID } from "../demoFamily";
 
 type Speed = 0.5 | 1 | 2 | 5 | 10;
 type TourMode = "off" | "life";
@@ -77,6 +78,37 @@ type GlobeRing = {
   title?: string;
 };
 
+// ─── Cinematic intro chapters ───────────────────────
+
+type Chapter = {
+  year: number;
+  lat: number;
+  lng: number;
+  altitude: number;
+  title: string;
+  subtitle: string;
+  durationMs: number;
+  flyMs: number;
+};
+
+const CINEMATIC_CHAPTERS: Chapter[] = [
+  { year: 1918, lat: 20, lng: -10, altitude: 2.6, title: "The Santos-Dupont Family", subtitle: "A story across four continents", durationMs: 3500, flyMs: 2000 },
+  { year: 1920, lat: 38.72, lng: -9.14, altitude: 1.4, title: "António Santos", subtitle: "Lisbon · 1920", durationMs: 3000, flyMs: 1800 },
+  { year: 1924, lat: 45.76, lng: 4.84, altitude: 1.4, title: "Marie Dupont", subtitle: "Lyon · 1924", durationMs: 2500, flyMs: 1500 },
+  { year: 1945, lat: 38.72, lng: -9.14, altitude: 1.5, title: "A wedding in Lisbon", subtitle: "António & Marie · 1945", durationMs: 2800, flyMs: 1500 },
+  { year: 1950, lat: 48.86, lng: 2.35, altitude: 1.4, title: "A new life in Paris", subtitle: "1950", durationMs: 2500, flyMs: 1500 },
+  { year: 1946, lat: -34.60, lng: -58.38, altitude: 1.4, title: "Carlos Rivera", subtitle: "Buenos Aires · 1946", durationMs: 2800, flyMs: 2000 },
+  { year: 1972, lat: 48.86, lng: 2.35, altitude: 1.5, title: "Isabel & Carlos", subtitle: "Married in Paris · 1972", durationMs: 2500, flyMs: 1800 },
+  { year: 1975, lat: -23.55, lng: -46.63, altitude: 1.4, title: "Three children", subtitle: "São Paulo & Buenos Aires · 1975–1982", durationMs: 2800, flyMs: 2000 },
+  { year: 2001, lat: 40.71, lng: -74.01, altitude: 1.4, title: "Lucia Rivera", subtitle: "New York · 2001", durationMs: 2200, flyMs: 1800 },
+  { year: 2005, lat: 35.68, lng: 139.69, altitude: 1.4, title: "Miguel Rivera", subtitle: "Tokyo · 2005", durationMs: 2200, flyMs: 2000 },
+  { year: 2010, lat: 38.72, lng: -9.14, altitude: 1.3, title: "Sofia Rivera", subtitle: "Back to where it all began · Lisbon · 2010", durationMs: 3200, flyMs: 2000 },
+  { year: 2026, lat: 25, lng: 10, altitude: 2.5, title: "3 generations · 7 cities · 4 continents", subtitle: "", durationMs: 3500, flyMs: 2200 },
+];
+
+/** Module-level flag so the cinematic plays only once per page load. */
+let cinematicPlayed = false;
+
 // ─── Component ──────────────────────────────────────
 
 export function AtlasView() {
@@ -85,6 +117,7 @@ export function AtlasView() {
   const selectPerson = useStore((s) => s.selectPerson);
   const pushToast = useStore((s) => s.pushToast);
   const focusSet = useFocusSet();
+  const isDemoData = data.datasetId === DEMO_DATASET_ID;
 
   // ─── Focus filter ─────
   const scopedData = useMemo(() => {
@@ -109,6 +142,11 @@ export function AtlasView() {
   const [trailsVisible, setTrailsVisible] = useState(false);
   const [hoveredPerson, setHoveredPerson] = useState<string | null>(null);
   const [tourMode, setTourMode] = useState<TourMode>("off");
+
+  // ─── Cinematic intro state ─────
+  const [cinematicIdx, setCinematicIdx] = useState(-1); // -1 = inactive
+  const [cinematicText, setCinematicText] = useState<{ title: string; subtitle: string } | null>(null);
+  const cinematicActive = cinematicIdx >= 0;
 
   useEffect(() => {
     setYear((y) => {
@@ -537,17 +575,88 @@ export function AtlasView() {
   }, [globeRings, globeReady]);
 
   // Auto-rotate: faster when playing, stopped when a person is selected
+  // Disabled entirely during cinematic intro (camera is scripted).
   useEffect(() => {
     if (!globeRef.current || !globeReady) return;
     const controls = globeRef.current.controls();
     if (!controls) return;
-    if (selectedPersonId) {
+    if (cinematicActive) {
+      controls.autoRotate = false;
+    } else if (selectedPersonId) {
       controls.autoRotate = false;
     } else {
       controls.autoRotate = true;
       controls.autoRotateSpeed = playing ? 0.7 : 0.35;
     }
-  }, [playing, globeReady, selectedPersonId]);
+  }, [playing, globeReady, selectedPersonId, cinematicActive]);
+
+  // ─── Cinematic intro ─────
+  // Auto-starts once per page load when the demo dataset is active.
+  // Flies the camera through the family history with text overlays.
+
+  const dismissCinematic = useCallback(() => {
+    setCinematicIdx(-1);
+    setCinematicText(null);
+    cinematicPlayed = true;
+  }, []);
+
+  // Trigger: globe ready + demo data + not played yet
+  useEffect(() => {
+    if (!globeReady || !isDemoData || cinematicPlayed) return;
+    cinematicPlayed = true;
+    const timer = setTimeout(() => setCinematicIdx(0), 900);
+    return () => clearTimeout(timer);
+  }, [globeReady, isDemoData]);
+
+  // Advance through chapters
+  useEffect(() => {
+    if (cinematicIdx < 0 || !globeRef.current) return;
+    const chapter = CINEMATIC_CHAPTERS[cinematicIdx];
+    if (!chapter) {
+      // Sequence finished — show final prompt
+      setCinematicText({ title: "Click anywhere to explore", subtitle: "" });
+      return;
+    }
+
+    // Fly camera + set year
+    globeRef.current.pointOfView(
+      { lat: chapter.lat, lng: chapter.lng, altitude: chapter.altitude },
+      chapter.flyMs
+    );
+    setYear(chapter.year);
+
+    // Show text after a small delay so the camera has started moving
+    const textTimer = setTimeout(() => {
+      setCinematicText({ title: chapter.title, subtitle: chapter.subtitle });
+    }, Math.min(500, chapter.flyMs * 0.3));
+
+    // Advance to next chapter after this one's duration
+    const nextTimer = setTimeout(() => {
+      setCinematicText(null); // brief gap between chapters
+      setTimeout(() => setCinematicIdx((i) => i + 1), 250);
+    }, chapter.durationMs);
+
+    return () => {
+      clearTimeout(textTimer);
+      clearTimeout(nextTimer);
+    };
+  }, [cinematicIdx]);
+
+  // Dismiss on any click or keypress
+  useEffect(() => {
+    if (!cinematicActive) return;
+    const handler = () => dismissCinematic();
+    // Use a short delay so the same click that opened Atlas doesn't dismiss immediately
+    const timer = setTimeout(() => {
+      document.addEventListener("pointerdown", handler, { once: true });
+      document.addEventListener("keydown", handler, { once: true });
+    }, 600);
+    return () => {
+      clearTimeout(timer);
+      document.removeEventListener("pointerdown", handler);
+      document.removeEventListener("keydown", handler);
+    };
+  }, [cinematicActive, dismissCinematic]);
 
   // ─── Camera focus: smoothly fly to the selected person ─────
   // Fires on: selection change, location change, or tour mode change.
@@ -621,11 +730,26 @@ export function AtlasView() {
           </div>
         )}
 
-        {/* Big year display — dominates the top of the globe */}
+        {/* Cinematic intro overlay */}
+        {cinematicActive && (
+          <div className="cinematic-overlay" onClick={dismissCinematic}>
+            {cinematicText && (
+              <div className="cinematic-text" key={cinematicIdx}>
+                <div className="cinematic-title">{cinematicText.title}</div>
+                {cinematicText.subtitle && (
+                  <div className="cinematic-subtitle">{cinematicText.subtitle}</div>
+                )}
+              </div>
+            )}
+            <div className="cinematic-skip">Click anywhere to skip</div>
+          </div>
+        )}
+
+        {/* Big year display — hidden during cinematic intro */}
         <div
           className={`atlas-year-huge ${playing ? "playing" : ""} ${
             tourMode === "life" ? "tour" : ""
-          }`}
+          } ${cinematicActive ? "hidden" : ""}`}
         >
           <div className="atlas-year-huge-value">{year}</div>
           <div className="atlas-year-huge-sub">
