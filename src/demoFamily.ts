@@ -68,35 +68,35 @@ const DAVID   = "person_demo_david";
 
 const people: Record<string, Person> = {
   [ANTONIO]: {
-    id: ANTONIO, name: "António", surname: "Santos", gender: "M",
+    id: ANTONIO, name: "António Santos", gender: "M",
     notes: "Born in Alfama, Lisbon. Moved to Paris after the war to work in construction."
   },
   [MARIE]: {
-    id: MARIE, name: "Marie", surname: "Dupont", gender: "F",
+    id: MARIE, name: "Marie Dupont", gender: "F",
     notes: "Grew up in the Croix-Rousse district of Lyon. Met António at a dance in Lisbon."
   },
   [ISABEL]: {
-    id: ISABEL, name: "Isabel", surname: "Santos", gender: "F",
+    id: ISABEL, name: "Isabel Santos", gender: "F",
     notes: "Raised in Paris but always felt drawn to warmer latitudes."
   },
   [CARLOS]: {
-    id: CARLOS, name: "Carlos", surname: "Rivera", gender: "M",
+    id: CARLOS, name: "Carlos Rivera", gender: "M",
     notes: "Son of Spanish immigrants in Buenos Aires. Came to Europe on a scholarship."
   },
   [LUCIA]: {
-    id: LUCIA, name: "Lucia", surname: "Rivera", gender: "F",
+    id: LUCIA, name: "Lucia Rivera", gender: "F",
     notes: "Born in São Paulo during a thunderstorm. Works as a translator in New York."
   },
   [MIGUEL]: {
-    id: MIGUEL, name: "Miguel", surname: "Rivera", gender: "M",
+    id: MIGUEL, name: "Miguel Rivera", gender: "M",
     notes: "Software engineer who moved to Tokyo for a startup. Speaks Japanese fluently."
   },
   [SOFIA]: {
-    id: SOFIA, name: "Sofia", surname: "Rivera", gender: "F",
+    id: SOFIA, name: "Sofia Rivera", gender: "F",
     notes: "Returned to Lisbon — the city her grandfather left. Runs a ceramics studio in Alfama."
   },
   [DAVID]: {
-    id: DAVID, name: "David", surname: "Chen", gender: "M",
+    id: DAVID, name: "David Chen", gender: "M",
     notes: "Born in Queens, New York. Met Lucia at a book club in the East Village."
   }
 };

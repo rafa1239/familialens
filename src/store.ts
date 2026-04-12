@@ -354,8 +354,9 @@ export const useStore = create<Store>()((set, get) => {
           // First visit — auto-load the demo family so the portfolio
           // experience is instant (globe with dots, trails, and Life Tour
           // ready to go). The user can clear it and start fresh anytime.
+          // Land on the Atlas view to showcase the 3D globe immediately.
           const demo = createDemoData();
-          set({ data: demo, hydrated: true });
+          set({ data: demo, hydrated: true, viewMode: "atlas" });
           saveSnapshot(demo);
         }
       } catch {
@@ -370,6 +371,7 @@ export const useStore = create<Store>()((set, get) => {
     loadDemo() {
       const demo = createDemoData();
       commit(demo, { selectedPersonId: null, selectedEventId: null });
+      set({ viewMode: "atlas" });
     },
 
     isDemo() {
