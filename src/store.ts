@@ -352,11 +352,17 @@ export const useStore = create<Store>()((set, get) => {
           set({ data: snapshot, hydrated: true });
         } else {
           // First visit — auto-load the demo family so the portfolio
-          // experience is instant (globe with dots, trails, and Life Tour
-          // ready to go). The user can clear it and start fresh anytime.
-          // Land on the Atlas view to showcase the 3D globe immediately.
+          // experience is instant. Land on Atlas with a "peak" year
+          // (~1980: 7 people alive, spread across 5 cities), trails
+          // visible, and Sofia pre-selected (the full-circle story —
+          // she returned to Lisbon where her grandfather was born).
           const demo = createDemoData();
-          set({ data: demo, hydrated: true, viewMode: "atlas" });
+          set({
+            data: demo,
+            hydrated: true,
+            viewMode: "atlas",
+            selectedPersonId: "person_demo_sofia"
+          });
           saveSnapshot(demo);
         }
       } catch {

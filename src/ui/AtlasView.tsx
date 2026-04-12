@@ -136,10 +136,16 @@ export function AtlasView() {
 
   // ─── Year state ─────
   const yearBounds = useMemo(() => atlasYearBounds(scopedData), [scopedData]);
-  const [year, setYear] = useState(yearBounds.minYear);
+  // Start the demo at a "peak" year where most people are alive and
+  // spread across cities. For non-demo, start at the beginning.
+  const initialYear = isDemoData
+    ? Math.min(1980, yearBounds.maxYear)
+    : yearBounds.minYear;
+  const [year, setYear] = useState(initialYear);
   const [playing, setPlaying] = useState(false);
   const [speed, setSpeed] = useState<Speed>(2);
-  const [trailsVisible, setTrailsVisible] = useState(false);
+  // Trails on by default for demo so migration paths are visible immediately.
+  const [trailsVisible, setTrailsVisible] = useState(isDemoData);
   const [hoveredPerson, setHoveredPerson] = useState<string | null>(null);
   const [tourMode, setTourMode] = useState<TourMode>("off");
 
