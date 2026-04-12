@@ -19,6 +19,7 @@ import {
 } from "./relationships";
 import { parseDate } from "./dates";
 import type { ParsedStatement } from "./parseNarrative";
+import { createDemoData, DEMO_DATASET_ID } from "./demoFamily";
 
 // ─── Factories ───────────────────────────────────────
 
@@ -86,6 +87,8 @@ interface Store {
   // Init
   init: () => Promise<void>;
   importData: (data: DataState) => void;
+  loadDemo: () => void;
+  isDemo: () => boolean;
   reset: () => void;
 
   // History
@@ -345,8 +348,16 @@ export const useStore = create<Store>()((set, get) => {
     async init() {
       try {
         const snapshot = await loadSnapshot();
-        if (snapshot) set({ data: snapshot, hydrated: true });
-        else set({ hydrated: true });
+        if (snapshot) {
+          set({ data: snapshot, hydrated: true });
+        } else {
+          // First visit — auto-load the demo family so the portfolio
+          // experience is instant (globe with dots, trails, and Life Tour
+          // ready to go). The user can clear it and start fresh anytime.
+          const demo = createDemoData();
+          set({ data: demo, hydrated: true });
+          saveSnapshot(demo);
+        }
       } catch {
         set({ hydrated: true });
       }
@@ -354,6 +365,15 @@ export const useStore = create<Store>()((set, get) => {
 
     importData(data) {
       commit(data, { selectedPersonId: null, selectedEventId: null });
+    },
+
+    loadDemo() {
+      const demo = createDemoData();
+      commit(demo, { selectedPersonId: null, selectedEventId: null });
+    },
+
+    isDemo() {
+      return get().data.datasetId === DEMO_DATASET_ID;
     },
 
     reset() {

@@ -4,6 +4,10 @@ import { useStore } from "../store";
  * First-run experience. Shown when the dataset is completely empty.
  * Covers the whole workspace (not just one view) and invites the user
  * to create their first person — ideally themselves.
+ *
+ * Also offers a "Load demo family" button to instantly populate the
+ * workspace with the Santos-Dupont family (8 people, 3 generations,
+ * 7 cities across 4 continents) — great for exploring features.
  */
 export function EmptyWorkspace({
   onOpenNarrative
@@ -12,12 +16,21 @@ export function EmptyWorkspace({
 }) {
   const addPerson = useStore((s) => s.addPerson);
   const selectPerson = useStore((s) => s.selectPerson);
+  const loadDemo = useStore((s) => s.loadDemo);
   const pushToast = useStore((s) => s.pushToast);
 
   const startWithSelf = () => {
     const id = addPerson({ name: "Me", gender: "U" });
     selectPerson(id);
     pushToast("Created. Edit the name, add your birth year, then link relatives.", "success");
+  };
+
+  const handleLoadDemo = () => {
+    loadDemo();
+    pushToast(
+      "Demo family loaded — the Santos-Dupont family, 3 generations across 7 cities. Try the Atlas!",
+      "success"
+    );
   };
 
   return (
@@ -85,12 +98,21 @@ export function EmptyWorkspace({
             </button>
           )}
         </div>
+        <div className="empty-divider">
+          <span>or</span>
+        </div>
+        <button className="demo-load-btn" onClick={handleLoadDemo}>
+          Explore with a demo family
+        </button>
+        <p className="demo-load-hint">
+          8 people · 3 generations · Lisbon → Paris → Buenos Aires → NYC → Tokyo
+        </p>
         <div className="empty-hints">
           <div className="hint">
             <kbd>N</kbd> new person
           </div>
           <div className="hint">
-            <kbd>1</kbd>/<kbd>2</kbd>/<kbd>3</kbd> timeline · tree · map
+            <kbd>1</kbd>/<kbd>2</kbd>/<kbd>3</kbd>/<kbd>4</kbd> timeline · tree · map · atlas
           </div>
           <div className="hint">
             Right-click to link

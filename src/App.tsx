@@ -29,6 +29,8 @@ export function App() {
   const selectPerson = useStore((s) => s.selectPerson);
   const selectEvent = useStore((s) => s.selectEvent);
   const addPerson = useStore((s) => s.addPerson);
+  const reset = useStore((s) => s.reset);
+  const isDemo = useStore((s) => s.isDemo);
   const peopleCount = useStore((s) => Object.keys(s.data.people).length);
   const [placesOpen, setPlacesOpen] = useState(false);
   const [statsOpen, setStatsOpen] = useState(false);
@@ -214,6 +216,23 @@ export function App() {
         {viewMode === "atlas" && <AtlasView />}
         <Inspector />
       </div>
+      {isDemo() && (
+        <div className="demo-banner">
+          <span className="demo-banner-text">
+            Demo family — the Santos-Dupont family
+          </span>
+          <button
+            className="demo-banner-clear"
+            onClick={() => {
+              reset();
+              selectPerson(null);
+              selectEvent(null);
+            }}
+          >
+            Clear &amp; start fresh
+          </button>
+        </div>
+      )}
       <Toasts />
       {placesOpen && <PlacesPanel onClose={() => setPlacesOpen(false)} />}
       {statsOpen && (

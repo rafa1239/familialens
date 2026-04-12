@@ -1079,6 +1079,87 @@ button.big:hover {
   transform: translateY(-1px);
 }
 
+/* ─── Demo load section in EmptyWorkspace ─── */
+.empty-divider {
+  margin-top: 16px;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  color: var(--ink-faint);
+  font-size: 0.74rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+.empty-divider::before,
+.empty-divider::after {
+  content: "";
+  flex: 1;
+  height: 1px;
+  background: var(--border);
+}
+
+.demo-load-btn {
+  margin-top: 12px;
+  padding: 9px 22px;
+  background: transparent;
+  border: 1px dashed var(--accent);
+  color: var(--accent);
+  border-radius: 10px;
+  font-size: 0.86rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 180ms ease;
+}
+.demo-load-btn:hover {
+  background: rgba(192, 122, 32, 0.08);
+  border-style: solid;
+  transform: translateY(-1px);
+}
+.demo-load-hint {
+  margin-top: 6px;
+  font-size: 0.72rem;
+  color: var(--ink-faint);
+  text-align: center;
+  letter-spacing: 0.02em;
+}
+
+/* ─── Demo active banner ─── */
+.demo-banner {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  z-index: 900;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 14px;
+  padding: 7px 20px;
+  background: linear-gradient(90deg, rgba(192, 122, 32, 0.12), rgba(192, 122, 32, 0.06));
+  border-top: 1px solid rgba(192, 122, 32, 0.25);
+  backdrop-filter: blur(10px);
+  font-size: 0.76rem;
+}
+.demo-banner-text {
+  color: var(--ink-muted);
+  font-style: italic;
+}
+.demo-banner-clear {
+  padding: 3px 12px;
+  background: transparent;
+  border: 1px solid var(--accent);
+  color: var(--accent);
+  border-radius: 6px;
+  font-size: 0.72rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 150ms ease;
+}
+.demo-banner-clear:hover {
+  background: var(--accent);
+  color: white;
+}
+
 .empty-hints {
   margin-top: 12px;
   display: flex;
