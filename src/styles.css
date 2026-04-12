@@ -133,6 +133,51 @@ button, input, select, textarea { font: inherit; color: inherit; }
   animation: fade-in 200ms ease;
 }
 
+/* ─── Export dropdown ─── */
+.topbar-dropdown-wrap {
+  position: relative;
+}
+.topbar-dropdown {
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 0;
+  z-index: 800;
+  min-width: 160px;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-strong);
+  border-radius: 10px;
+  padding: 6px;
+  box-shadow: var(--shadow-md);
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  animation: fade-in 120ms ease;
+}
+.topbar-dropdown button {
+  width: 100%;
+  text-align: left;
+  background: transparent;
+  border: none;
+  padding: 8px 12px;
+  font-size: 0.82rem;
+  border-radius: 6px;
+  color: var(--ink);
+}
+.topbar-dropdown button:hover {
+  background: var(--bg-hover);
+}
+.topbar-dropdown button.danger {
+  color: var(--danger);
+}
+.topbar-dropdown button.danger:hover {
+  background: var(--danger-soft);
+}
+.topbar-dropdown hr {
+  border: none;
+  border-top: 1px solid var(--border);
+  margin: 4px 0;
+}
+
 /* ═══ Buttons ═══ */
 button {
   border: 1px solid var(--border);
@@ -225,23 +270,29 @@ textarea { resize: vertical; min-height: 56px; font-family: inherit; }
   align-items: center;
   gap: 10px;
   width: 100%;
-  padding: 8px 10px;
+  padding: 9px 12px;
   border: 1px solid transparent;
   background: transparent;
-  border-radius: 8px;
+  border-radius: 10px;
   text-align: left;
   margin-bottom: 2px;
-  transition: background 120ms ease;
+  transition: all 140ms ease;
 }
-.person-row:hover { background: var(--bg-hover); border-color: transparent; }
+.person-row:hover {
+  background: var(--bg-hover);
+  border-color: var(--border);
+  transform: translateX(2px);
+}
 .person-row.selected {
   background: var(--bg-selected);
-  border-color: var(--accent-soft);
+  border-color: var(--accent);
+  box-shadow: inset 3px 0 0 var(--accent), 0 2px 8px rgba(192, 122, 32, 0.1);
 }
+.person-row.selected .person-name { color: var(--accent); }
 
 .person-avatar {
-  width: 34px;
-  height: 34px;
+  width: 36px;
+  height: 36px;
   border-radius: 50%;
   display: flex;
   align-items: center;
@@ -251,6 +302,7 @@ textarea { resize: vertical; min-height: 56px; font-family: inherit; }
   color: white;
   flex-shrink: 0;
   overflow: hidden;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.12);
 }
 .person-avatar img { width: 100%; height: 100%; object-fit: cover; }
 
@@ -265,12 +317,31 @@ textarea { resize: vertical; min-height: 56px; font-family: inherit; }
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+  transition: color 140ms ease;
 }
 .person-meta {
-  font-size: 0.7rem;
+  font-size: 0.68rem;
   color: var(--ink-faint);
-  margin-top: 1px;
+  margin-top: 2px;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
+.person-years {
+  font-family: "JetBrains Mono", monospace;
+  font-size: 0.66rem;
+  letter-spacing: 0.02em;
+  color: var(--ink-muted);
+}
+.person-meta-sep { color: var(--border-strong); }
+.person-place {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.person-events { color: var(--ink-faint); }
 
 .sidebar-footer {
   padding: 10px;

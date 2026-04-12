@@ -4,6 +4,8 @@ import type { DataState, Person } from "../types";
 import { PhotoThumb } from "./PhotoThumb";
 import { ContextMenu, type MenuItem } from "./ContextMenu";
 import { PersonPicker, type PickerResult } from "./PersonPicker";
+import { findBirthEvent, findDeathEvent } from "../relationships";
+import { yearOf } from "../dates";
 
 function countEvents(data: DataState, personId: string): number {
   let n = 0;
@@ -11,6 +13,22 @@ function countEvents(data: DataState, personId: string): number {
     if (ev.people.includes(personId)) n += 1;
   }
   return n;
+}
+
+function lifespan(data: DataState, personId: string): string {
+  const birth = findBirthEvent(data, personId);
+  const death = findDeathEvent(data, personId);
+  const by = yearOf(birth?.date);
+  const dy = yearOf(death?.date);
+  if (by == null && dy == null) return "";
+  if (by != null && dy != null) return `${by}–${dy}`;
+  if (by != null) return `${by}–`;
+  return `†${dy}`;
+}
+
+function birthPlace(data: DataState, personId: string): string {
+  const birth = findBirthEvent(data, personId);
+  return birth?.place?.name ?? "";
 }
 
 function initials(name: string): string {
@@ -90,6 +108,8 @@ export function PeopleList() {
             key={person.id}
             person={person}
             eventCount={countEvents(data, person.id)}
+            years={lifespan(data, person.id)}
+            place={birthPlace(data, person.id)}
             selected={person.id === selectedPersonId}
             editing={editingId === person.id}
             onSelect={() => {
@@ -251,6 +271,8 @@ export function PeopleList() {
 function PersonRow({
   person,
   eventCount,
+  years,
+  place,
   selected,
   editing,
   onSelect,
@@ -260,6 +282,8 @@ function PersonRow({
 }: {
   person: Person;
   eventCount: number;
+  years: string;
+  place: string;
   selected: boolean;
   editing: boolean;
   onSelect: () => void;
@@ -322,7 +346,14 @@ function PersonRow({
       <div className="person-info">
         <div className="person-name">{person.name || "Unnamed"}</div>
         <div className="person-meta">
-          {eventCount} {eventCount === 1 ? "event" : "events"}
+          {years && <span className="person-years">{years}</span>}
+          {years && place && <span className="person-meta-sep">·</span>}
+          {place && <span className="person-place">{place}</span>}
+          {!years && !place && (
+            <span className="person-events">
+              {eventCount} {eventCount === 1 ? "event" : "events"}
+            </span>
+          )}
         </div>
       </div>
     </button>

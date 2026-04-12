@@ -1,4 +1,4 @@
-import { useRef, useState } from "react";
+import { useRef, useState, useEffect } from "react";
 import { useStore } from "../store";
 import { convertV5toV7 } from "../converter";
 import { exportGedcom, parseGedcom } from "../gedcom";
@@ -32,9 +32,23 @@ export function TopBar({
   const futureLen = useStore((s) => s.future.length);
   const fileRef = useRef<HTMLInputElement>(null);
   const [status, setStatus] = useState<string | null>(null);
+  const [exportOpen, setExportOpen] = useState(false);
+  const exportRef = useRef<HTMLDivElement>(null);
 
   const peopleCount = Object.keys(data.people).length;
   const eventCount = Object.keys(data.events).length;
+
+  // Close export dropdown on outside click
+  useEffect(() => {
+    if (!exportOpen) return;
+    const handler = (e: MouseEvent) => {
+      if (exportRef.current && !exportRef.current.contains(e.target as Node)) {
+        setExportOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, [exportOpen]);
 
   const handleExportJson = () => {
     const blob = new Blob([JSON.stringify(data, null, 2)], {
@@ -252,46 +266,48 @@ export function TopBar({
           ↷
         </button>
         <span className="topbar-separator" />
-        <button
-          className="ghost"
-          onClick={onOpenSearch}
-          title="Search (⌘K)"
-        >
+        <button className="ghost" onClick={onOpenSearch} title="Search (⌘K)">
           Search
         </button>
         <button
           className="ghost tell-me-btn"
           onClick={onOpenNarrative}
-          title="Tell me your family — free-form input (⌘⇧K)"
+          title="Tell me your family (⌘⇧K)"
         >
           Tell me
         </button>
-        <button className="ghost" onClick={onOpenStats} title="Dataset overview">
-          Stats
-        </button>
-        <button className="ghost" onClick={onOpenPlaces} title="Manage places">
-          Places
-        </button>
+        <span className="topbar-separator" />
+        <button className="ghost" onClick={onOpenStats}>Stats</button>
+        <button className="ghost" onClick={onOpenPlaces}>Places</button>
         <span className="topbar-separator" />
         <button className="ghost" onClick={() => fileRef.current?.click()}>
           Import
         </button>
-        <button className="ghost" onClick={handleExportJson}>
-          JSON
-        </button>
-        <button className="ghost" onClick={handleExportGedcom}>
-          GEDCOM
-        </button>
-        <button
-          className="ghost"
-          onClick={handleExportAlbum}
-          title="Export a self-contained HTML album"
-        >
-          Album
-        </button>
-        <button className="ghost" onClick={handleReset}>
-          Clear
-        </button>
+        <div className="topbar-dropdown-wrap" ref={exportRef}>
+          <button
+            className={`ghost ${exportOpen ? "active" : ""}`}
+            onClick={() => setExportOpen((o) => !o)}
+          >
+            Export ▾
+          </button>
+          {exportOpen && (
+            <div className="topbar-dropdown">
+              <button onClick={() => { handleExportJson(); setExportOpen(false); }}>
+                JSON
+              </button>
+              <button onClick={() => { handleExportGedcom(); setExportOpen(false); }}>
+                GEDCOM 5.5
+              </button>
+              <button onClick={() => { handleExportAlbum(); setExportOpen(false); }}>
+                HTML Album
+              </button>
+              <hr />
+              <button className="danger" onClick={() => { handleReset(); setExportOpen(false); }}>
+                Clear all data
+              </button>
+            </div>
+          )}
+        </div>
       </div>
 
       <input
