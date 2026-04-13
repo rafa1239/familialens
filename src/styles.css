@@ -624,11 +624,7 @@ textarea { resize: vertical; min-height: 56px; font-family: inherit; }
   filter: drop-shadow(0 2px 8px rgba(192, 122, 32, 0.06));
 }
 
-.tree-node {
-  cursor: pointer;
-  transition: transform 180ms ease;
-}
-.tree-node:hover { transform: translateY(-1px); }
+.tree-node { cursor: pointer; }
 .tree-node-rect {
   fill: var(--bg-elevated);
   stroke: var(--border-strong);
