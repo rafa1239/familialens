@@ -69,11 +69,32 @@ button, input, select, textarea { font: inherit; color: inherit; }
 .boot-screen {
   height: 100%;
   display: flex;
+  flex-direction: column;
   align-items: center;
   justify-content: center;
-  color: var(--ink-faint);
-  font-size: 0.9rem;
+  gap: 16px;
+  background: var(--bg);
 }
+.boot-screen::before {
+  content: "FamiliaLens";
+  font-size: 1.4rem;
+  font-weight: 700;
+  color: var(--accent);
+  letter-spacing: -0.02em;
+}
+.boot-screen::after {
+  content: "";
+  width: 32px;
+  height: 32px;
+  border: 3px solid var(--border);
+  border-top-color: var(--accent);
+  border-radius: 50%;
+  animation: boot-spin 800ms linear infinite;
+}
+@keyframes boot-spin {
+  to { transform: rotate(360deg); }
+}
+.boot-screen p { display: none; }
 
 /* ═══ TopBar ═══ */
 .topbar {
@@ -1077,6 +1098,18 @@ textarea { resize: vertical; min-height: 56px; font-family: inherit; }
 @keyframes fade-in {
   from { opacity: 0; transform: translateY(-2px); }
   to { opacity: 1; transform: translateY(0); }
+}
+
+/* ─── View transition: all main views fade in on mount ─── */
+@keyframes view-enter {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+.timeline,
+.tree-view,
+.map-wrap,
+.atlas-view {
+  animation: view-enter 220ms ease-out;
 }
 
 /* ═══ Scrollbars ═══ */
@@ -3905,27 +3938,33 @@ button.big:hover {
 .modal-backdrop {
   position: fixed;
   inset: 0;
-  background: rgba(20, 14, 8, 0.45);
-  backdrop-filter: blur(3px);
+  background: rgba(16, 12, 6, 0.5);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
   display: flex;
   align-items: flex-start;
   justify-content: center;
   padding-top: 12vh;
   z-index: 1000;
-  animation: fade-in 140ms ease;
+  animation: backdrop-in 200ms ease;
+}
+
+@keyframes backdrop-in {
+  from { opacity: 0; backdrop-filter: blur(0); }
+  to { opacity: 1; backdrop-filter: blur(6px); }
 }
 
 .modal {
-  background: var(--bg-surface);
+  background: var(--bg-elevated);
   border: 1px solid var(--border-strong);
-  border-radius: 14px;
-  box-shadow: var(--shadow-lg);
+  border-radius: 16px;
+  box-shadow: var(--shadow-lg), 0 0 0 1px rgba(0, 0, 0, 0.04);
   width: 460px;
   max-width: calc(100vw - 32px);
   max-height: 70vh;
   display: flex;
   flex-direction: column;
-  animation: modal-rise 180ms cubic-bezier(.2,.8,.3,1);
+  animation: modal-rise 220ms cubic-bezier(.2,.8,.3,1);
   overflow: hidden;
 }
 
