@@ -11,12 +11,12 @@ import { useFocusSet } from "./useFocusSet";
 // ─── Layout constants ────────────────────────────────
 const LANE_H = 46;
 const HEADER_H = 44;
-const LEFT_PAD = 180;
+const LEFT_PAD = 190;
 const RIGHT_PAD = 40;
 const MIN_PX_PER_YEAR = 4;
 const DEFAULT_PX_PER_YEAR = 14;
 const MAX_PX_PER_YEAR = 60;
-const DOT_R = 7;
+const DOT_R = 9;
 
 // ─── Helpers ─────────────────────────────────────────
 type Lane = {
@@ -476,12 +476,15 @@ export function Timeline() {
                 }}
               >
                 <span
-                  className="marriage-heart"
+                  className="marriage-icon"
                   style={{
                     top: (m.yBottom - m.yTop) / 2 - 9
                   }}
                 >
-                  ♥
+                  <svg viewBox="0 0 14 12" width="14" height="12">
+                    <circle cx="4.5" cy="6" r="3.5" fill="none" stroke="currentColor" strokeWidth="1.3" />
+                    <circle cx="9.5" cy="6" r="3.5" fill="none" stroke="currentColor" strokeWidth="1.3" />
+                  </svg>
                 </span>
               </button>
             );

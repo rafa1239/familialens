@@ -374,7 +374,7 @@ textarea { resize: vertical; min-height: 56px; font-family: inherit; }
 .timeline {
   position: relative;
   overflow: auto;
-  background: var(--bg);
+  background: linear-gradient(180deg, var(--bg-surface) 0px, var(--bg) 60px);
   min-width: 0;
 }
 
@@ -447,10 +447,10 @@ textarea { resize: vertical; min-height: 56px; font-family: inherit; }
   position: sticky;
   left: 0;
   z-index: 2;
-  width: 180px;
+  width: 190px;
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 10px;
   padding: 0 12px;
   background: var(--bg-surface);
   border-right: 1px solid var(--border);
@@ -458,17 +458,22 @@ textarea { resize: vertical; min-height: 56px; font-family: inherit; }
   transition: background 120ms ease;
 }
 .lane-label:hover { background: var(--bg-hover); }
-.lane-label.selected { background: var(--bg-selected); }
+.lane-label.selected {
+  background: var(--bg-selected);
+  box-shadow: inset 3px 0 0 var(--accent);
+}
 
 .lane-avatar {
-  width: 28px;
-  height: 28px;
+  width: 32px;
+  height: 32px;
   border-radius: 50%;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 0.66rem;
+  font-size: 0.68rem;
   font-weight: 700;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.12);
+  border: 2px solid var(--bg-surface);
   color: white;
   flex-shrink: 0;
   overflow: hidden;
@@ -477,43 +482,49 @@ textarea { resize: vertical; min-height: 56px; font-family: inherit; }
 
 .lane-name-wrap { min-width: 0; flex: 1; }
 .lane-name {
-  font-size: 0.82rem;
+  font-size: 0.84rem;
   font-weight: 600;
+  letter-spacing: -0.01em;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
 .lane-years {
-  font-size: 0.68rem;
+  font-size: 0.66rem;
   color: var(--ink-faint);
-  font-family: "JetBrains Mono", monospace;
+  font-family: "Inter", sans-serif;
+  font-weight: 500;
+  letter-spacing: 0.01em;
 }
 
 .lifeline {
   position: absolute;
-  height: 3px;
-  border-radius: 2px;
+  height: 4px;
+  border-radius: 3px;
+  opacity: 0.7;
   background: linear-gradient(
     to right,
-    var(--accent-soft),
-    var(--border-strong),
-    var(--accent-soft)
+    transparent,
+    var(--border-strong) 15%,
+    var(--border-strong) 85%,
+    transparent
   );
   pointer-events: none;
 }
 
 .event-dot {
   position: absolute;
-  border: none;
+  border: 1.5px solid rgba(255, 255, 255, 0.4);
   border-radius: 50%;
   cursor: pointer;
   padding: 0;
-  box-shadow: 0 0 0 2px var(--bg), 0 2px 4px rgba(0, 0, 0, 0.15);
-  transition: transform 150ms ease;
+  box-shadow: 0 0 0 2.5px var(--bg), 0 2px 6px rgba(0, 0, 0, 0.18);
+  transition: transform 150ms ease, box-shadow 150ms ease;
   z-index: 4;
 }
 .event-dot:hover {
-  transform: scale(1.3);
+  transform: scale(1.35);
+  box-shadow: 0 0 0 3px var(--bg), 0 0 0 5px currentColor, 0 4px 12px rgba(0, 0, 0, 0.20);
 }
 .event-dot.selected {
   box-shadow: 0 0 0 3px var(--bg), 0 0 0 5px var(--accent), 0 2px 6px rgba(0, 0, 0, 0.2);
@@ -583,7 +594,7 @@ textarea { resize: vertical; min-height: 56px; font-family: inherit; }
 .tree-view {
   position: relative;
   overflow: hidden;
-  background: var(--bg);
+  background: radial-gradient(ellipse at 50% 50%, var(--bg-surface) 0%, var(--bg) 70%);
   cursor: grab;
 }
 .tree-view:active { cursor: grabbing; }
@@ -593,9 +604,10 @@ textarea { resize: vertical; min-height: 56px; font-family: inherit; }
   stroke-linejoin: round;
 }
 .tree-edge.parent {
-  stroke: rgba(120, 90, 60, 0.5);
-  stroke-width: 2px;
+  stroke: rgba(100, 80, 55, 0.35);
+  stroke-width: 2.5px;
   fill: none;
+  filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.06));
 }
 .tree-edge.spouse {
   stroke: var(--accent);
@@ -606,28 +618,32 @@ textarea { resize: vertical; min-height: 56px; font-family: inherit; }
 
 /* Couple background — the "portrait frame" that holds a couple together */
 .tree-couple-bg {
-  fill: rgba(192, 122, 32, 0.06);
-  stroke: rgba(192, 122, 32, 0.2);
+  fill: rgba(192, 122, 32, 0.10);
+  stroke: rgba(192, 122, 32, 0.25);
   stroke-width: 1.5;
-  stroke-dasharray: 3 3;
+  filter: drop-shadow(0 2px 8px rgba(192, 122, 32, 0.06));
 }
 
-.tree-node { cursor: pointer; }
+.tree-node {
+  cursor: pointer;
+  transition: transform 180ms ease;
+}
+.tree-node:hover { transform: translateY(-1px); }
 .tree-node-rect {
-  fill: var(--bg-surface);
+  fill: var(--bg-elevated);
   stroke: var(--border-strong);
   stroke-width: 1.2;
   transition: stroke 150ms ease, filter 150ms ease;
-  filter: drop-shadow(0 3px 10px rgba(60, 40, 20, 0.1));
+  filter: drop-shadow(0 2px 4px rgba(40, 28, 12, 0.08)) drop-shadow(0 8px 24px rgba(40, 28, 12, 0.12));
 }
 .tree-node:hover .tree-node-rect {
   stroke: var(--ink-faint);
-  filter: drop-shadow(0 5px 16px rgba(60, 40, 20, 0.15));
+  filter: drop-shadow(0 4px 8px rgba(40, 28, 12, 0.12)) drop-shadow(0 12px 32px rgba(40, 28, 12, 0.16));
 }
 .tree-node.selected .tree-node-rect {
   stroke: var(--accent);
   stroke-width: 2.5;
-  filter: drop-shadow(0 6px 20px rgba(192, 122, 32, 0.35));
+  filter: drop-shadow(0 4px 12px rgba(184, 113, 24, 0.25)) drop-shadow(0 10px 30px rgba(184, 113, 24, 0.20));
 }
 
 /* Top gender stripe on the card */
@@ -685,8 +701,10 @@ textarea { resize: vertical; min-height: 56px; font-family: inherit; }
 
 .tree-node-dates {
   fill: var(--ink-muted);
-  font-family: "JetBrains Mono", monospace;
-  font-size: 11px;
+  font-family: "Inter", sans-serif;
+  font-size: 11.5px;
+  font-weight: 500;
+  letter-spacing: 0.01em;
   pointer-events: none;
 }
 
@@ -801,14 +819,15 @@ textarea { resize: vertical; min-height: 56px; font-family: inherit; }
 }
 
 .header-avatar {
-  width: 64px;
-  height: 64px;
+  width: 80px;
+  height: 80px;
   border-radius: 50%;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 1.1rem;
+  font-size: 1.3rem;
   font-weight: 700;
+  box-shadow: 0 4px 16px rgba(40, 28, 12, 0.12), 0 0 0 3px var(--bg-panel);
   color: white;
   overflow: hidden;
   box-shadow: var(--shadow-sm);
@@ -818,9 +837,9 @@ textarea { resize: vertical; min-height: 56px; font-family: inherit; }
 .header-view { width: 100%; }
 .header-view h2 {
   margin: 0 0 4px;
-  font-size: 1.1rem;
+  font-size: 1.25rem;
   font-weight: 700;
-  letter-spacing: -0.01em;
+  letter-spacing: -0.02em;
 }
 .header-meta {
   font-size: 0.76rem;
@@ -3262,10 +3281,10 @@ button.big:hover {
   left: 0;
   right: 0;
   top: 50%;
-  height: 3px;
-  margin-top: -1.5px;
-  background: var(--border-strong);
-  border-radius: 2px;
+  height: 4px;
+  margin-top: -2px;
+  background: linear-gradient(to right, var(--border), var(--border-strong), var(--border));
+  border-radius: 3px;
   pointer-events: none;
 }
 
@@ -3273,22 +3292,23 @@ button.big:hover {
   position: absolute;
   left: 0;
   top: 50%;
-  height: 3px;
-  margin-top: -1.5px;
-  background: var(--accent);
-  border-radius: 2px;
+  height: 4px;
+  margin-top: -2px;
+  background: linear-gradient(to right, rgba(184, 113, 24, 0.5), var(--accent));
+  border-radius: 3px;
   pointer-events: none;
 }
 
 .scrubber-handle {
   position: absolute;
   top: 50%;
-  width: 16px;
-  height: 16px;
-  margin-left: -8px;
-  margin-top: -8px;
+  width: 18px;
+  height: 18px;
+  margin-left: -9px;
+  margin-top: -9px;
   background: var(--accent);
   border: 2px solid var(--bg-surface);
+  transition: transform 80ms ease, box-shadow 120ms ease;
   border-radius: 50%;
   box-shadow: 0 2px 6px rgba(192, 122, 32, 0.35);
   pointer-events: none;
@@ -3319,12 +3339,11 @@ button.big:hover {
 /* Vertical line showing scrubber year across timeline canvas */
 .scrubber-line {
   position: absolute;
-  width: 2px;
-  background: var(--accent);
+  width: 1.5px;
+  background: linear-gradient(to bottom, var(--accent), rgba(184, 113, 24, 0.15));
   pointer-events: none;
   z-index: 2;
-  opacity: 0.5;
-  box-shadow: 0 0 0 1px var(--bg-surface);
+  opacity: 0.6;
 }
 
 /* Lane opacity based on alive-at-year */
@@ -3362,7 +3381,7 @@ button.big:hover {
   box-shadow: 0 0 0 2px var(--bg-surface), 0 0 0 3px var(--accent);
 }
 
-.marriage-heart {
+.marriage-icon {
   position: absolute;
   left: -6px;
   width: 18px;
@@ -4156,51 +4175,57 @@ button.big:hover {
 .relation-chip {
   display: inline-flex;
   align-items: stretch;
-  background: var(--bg);
+  background: var(--bg-surface);
   border: 1px solid var(--border);
-  border-radius: 16px;
+  border-radius: 20px;
   overflow: hidden;
-  transition: border-color 120ms ease, background 120ms ease;
+  box-shadow: 0 1px 3px rgba(40, 28, 12, 0.06);
+  transition: all 140ms ease;
 }
 .relation-chip:hover {
   border-color: var(--border-strong);
   background: var(--bg-hover);
+  box-shadow: 0 2px 8px rgba(40, 28, 12, 0.10);
+  transform: translateY(-1px);
 }
 
 .chip-body {
   display: flex;
   align-items: center;
-  gap: 6px;
-  padding: 3px 3px 3px 4px;
+  gap: 8px;
+  padding: 4px 4px 4px 5px;
   background: transparent;
   border: none;
   cursor: pointer;
-  font-size: 0.78rem;
+  font-size: 0.80rem;
   color: var(--ink);
 }
 .chip-body:hover { background: transparent; }
 
 .chip-avatar {
-  width: 22px;
-  height: 22px;
+  width: 30px;
+  height: 30px;
   border-radius: 50%;
   display: flex;
   align-items: center;
   justify-content: center;
   color: white;
-  font-size: 0.6rem;
+  font-size: 0.68rem;
   font-weight: 700;
   overflow: hidden;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.10);
+  border: 1.5px solid var(--bg-elevated);
   flex-shrink: 0;
 }
 .chip-avatar img { width: 100%; height: 100%; object-fit: cover; }
 
 .chip-name {
-  padding-right: 4px;
+  padding-right: 8px;
   white-space: nowrap;
   max-width: 140px;
   overflow: hidden;
   text-overflow: ellipsis;
+  font-weight: 500;
 }
 
 .chip-remove {
@@ -4286,13 +4311,17 @@ button.big:hover {
   grid-template-columns: 54px 1fr;
   gap: 6px 10px;
   margin: 14px 0 6px;
+  padding: 12px 14px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 10px;
   align-items: center;
   text-align: left;
 }
 
 .fact-label {
-  font-size: 0.66rem;
-  color: var(--ink-muted);
+  font-size: 0.68rem;
+  color: var(--ink-faint);
   text-transform: uppercase;
   letter-spacing: 0.06em;
   font-weight: 600;
@@ -4307,13 +4336,14 @@ button.big:hover {
 .fact-inputs input {
   padding: 5px 9px;
   font-size: 0.8rem;
-  background: var(--bg);
-  border: 1px solid transparent;
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
   transition: background 120ms ease, border-color 120ms ease;
 }
 .fact-inputs input:hover {
   background: var(--bg-input);
-  border-color: var(--border);
+  border-color: var(--border-strong);
 }
 .fact-inputs input:focus {
   background: var(--bg-elevated);
