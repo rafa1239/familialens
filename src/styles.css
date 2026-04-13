@@ -1327,14 +1327,30 @@ button.big:hover {
 
 .story-text {
   margin: 0;
-  font-size: 0.86rem;
-  line-height: 1.6;
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: 0.92rem;
+  line-height: 1.75;
   color: var(--ink);
-  padding: 12px 14px;
-  background: rgba(255, 248, 235, 0.5);
+  padding: 16px 18px 16px 22px;
+  background:
+    linear-gradient(135deg, rgba(255, 248, 235, 0.6) 0%, rgba(245, 238, 225, 0.3) 100%);
   border-left: 3px solid var(--accent);
-  border-radius: 6px;
+  border-radius: 2px 8px 8px 2px;
   font-style: italic;
+  position: relative;
+  box-shadow: 0 2px 8px rgba(40, 28, 12, 0.04);
+}
+.story-text::before {
+  content: "\201C";
+  position: absolute;
+  top: 6px;
+  left: 8px;
+  font-size: 2rem;
+  line-height: 1;
+  color: var(--accent);
+  opacity: 0.25;
+  font-family: Georgia, serif;
+  font-style: normal;
 }
 
 /* ═══ Relationship finder modal ═══ */
@@ -4476,8 +4492,76 @@ button.big:hover {
 @media (max-width: 1100px) {
   .workspace { grid-template-columns: 220px 1fr 300px; }
 }
+
+/* ─── Tablet (≤860px): stack panels vertically ─── */
 @media (max-width: 860px) {
-  .workspace { grid-template-columns: 1fr; grid-template-rows: auto 1fr auto; }
-  .sidebar { max-height: 200px; border-right: none; border-bottom: 1px solid var(--border); }
-  .inspector { border-left: none; border-top: 1px solid var(--border); max-height: 300px; }
+  .topbar { gap: 10px; padding: 0 12px; height: 48px; }
+  .topbar-stats { display: none; }
+  .brand h1 { font-size: 0.95rem; }
+  .view-switcher button { padding: 4px 10px; font-size: 0.72rem; }
+
+  .workspace {
+    grid-template-columns: 1fr;
+    grid-template-rows: auto 1fr auto;
+  }
+  .sidebar {
+    max-height: 180px;
+    border-right: none;
+    border-bottom: 1px solid var(--border);
+    box-shadow: 0 2px 8px rgba(40, 28, 12, 0.06);
+  }
+  .inspector {
+    border-left: none;
+    border-top: 1px solid var(--border);
+    box-shadow: 0 -2px 8px rgba(40, 28, 12, 0.06);
+    max-height: 280px;
+  }
+  .people-scroll { max-height: 120px; }
+}
+
+/* ─── Mobile (≤640px): compact everything ─── */
+@media (max-width: 640px) {
+  .topbar {
+    gap: 6px;
+    padding: 0 10px;
+    height: 44px;
+    flex-wrap: wrap;
+    overflow: hidden;
+  }
+  .brand h1 { font-size: 0.88rem; }
+  .version { display: none; }
+  .topbar-actions { gap: 3px; }
+  .topbar-actions .ghost { padding: 4px 8px; font-size: 0.72rem; }
+  .topbar-separator { display: none; }
+  .focus-switcher { display: none; }
+
+  .view-switcher { padding: 2px; }
+  .view-switcher button { padding: 3px 8px; font-size: 0.68rem; }
+
+  .sidebar { max-height: 140px; }
+  .sidebar-header { padding: 8px; }
+  .person-row { padding: 6px 8px; gap: 8px; }
+  .person-avatar { width: 30px; height: 30px; font-size: 0.64rem; }
+  .person-name { font-size: 0.8rem; }
+  .person-meta { font-size: 0.62rem; }
+  .sidebar-footer { padding: 6px; }
+  .add-btn { padding: 7px 10px; font-size: 0.76rem; }
+
+  .inspector { max-height: 240px; }
+  .inspector-section { padding: 10px 12px; gap: 8px; }
+  .header-avatar { width: 56px; height: 56px; font-size: 1rem; }
+  .header-view h2 { font-size: 1.05rem; }
+  .facts-grid { padding: 8px 10px; gap: 4px 8px; }
+
+  .atlas-year-huge { padding: 6px 12px; }
+  .atlas-year-huge-value { font-size: 1.6rem; }
+  .atlas-year-huge-sub { font-size: 0.6rem; gap: 4px; }
+  .atlas-selection-card { min-width: 150px; max-width: 180px; padding: 8px 24px 8px 10px; }
+  .atlas-sel-name { font-size: 0.82rem; }
+
+  .demo-banner { padding: 5px 12px; font-size: 0.68rem; gap: 8px; }
+  .demo-banner-clear { padding: 2px 8px; font-size: 0.66rem; }
+
+  .story-text { font-size: 0.84rem; padding: 12px 14px 12px 18px; }
+  .story-text::before { font-size: 1.5rem; }
 }
