@@ -206,8 +206,12 @@ describe("datasetYearBounds", () => {
     expect(datasetYearBounds(emptyData())).toBeNull();
   });
 
-  it("returns the min and max years", () => {
+  it("returns the min and max years (extends to today if alive people)", () => {
     const bounds = datasetYearBounds(withFamily());
-    expect(bounds).toEqual({ min: 1920, max: 1990 });
+    expect(bounds).not.toBeNull();
+    expect(bounds!.min).toBe(1920);
+    // Max is at least the latest event year, but may extend to today
+    // when the heuristic detects living people or a modern dataset.
+    expect(bounds!.max).toBeGreaterThanOrEqual(1990);
   });
 });

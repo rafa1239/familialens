@@ -247,5 +247,25 @@ export function datasetYearBounds(data: DataState): { min: number; max: number }
     if (y > max) max = y;
   }
   if (!Number.isFinite(min) || !Number.isFinite(max)) return null;
-  return { min: Math.floor(min), max: Math.ceil(max) };
+
+  // Extend to today for modern trees (same heuristic as atlasYearBounds):
+  // if anyone is plausibly alive OR the latest event is within 100 years.
+  const now = new Date().getFullYear();
+  const MAX_LIFESPAN = 110;
+  const MODERN_WINDOW = 100;
+  let hasLiving = false;
+  for (const p of Object.values(data.people)) {
+    const death = findDeathEvent(data, p.id);
+    if (death != null) continue;
+    const birth = findBirthEvent(data, p.id);
+    const by = yearOf(birth?.date);
+    if (by != null && now - by <= MAX_LIFESPAN) {
+      hasLiving = true;
+      break;
+    }
+  }
+  const isModern = hasLiving || now - Math.ceil(max) <= MODERN_WINDOW;
+  const finalMax = isModern ? Math.max(Math.ceil(max), now) : Math.ceil(max);
+
+  return { min: Math.floor(min), max: finalMax };
 }
