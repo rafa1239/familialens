@@ -172,10 +172,15 @@ export function TreeView() {
 
   const handlePointerDown = (e: React.PointerEvent) => {
     if (e.button !== 0) return;
+    // Prevent browser's native SVG drag and capture the pointer so
+    // move/up events keep firing even when the cursor leaves the container.
+    e.preventDefault();
+    (e.target as Element).setPointerCapture?.(e.pointerId);
     setPan({ sx: e.clientX, sy: e.clientY, bx: view.x, by: view.y });
   };
   const handlePointerMove = (e: React.PointerEvent) => {
     if (!pan) return;
+    e.preventDefault();
     setView((v) => ({
       ...v,
       x: pan.bx + (e.clientX - pan.sx),

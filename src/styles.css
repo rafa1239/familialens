@@ -617,6 +617,8 @@ textarea { resize: vertical; min-height: 56px; font-family: inherit; }
   overflow: hidden;
   background: radial-gradient(ellipse at 50% 50%, var(--bg-surface) 0%, var(--bg) 70%);
   cursor: grab;
+  touch-action: none;   /* prevent browser scroll/zoom — we handle it */
+  user-select: none;    /* prevent text selection during drag */
 }
 .tree-view:active { cursor: grabbing; }
 
