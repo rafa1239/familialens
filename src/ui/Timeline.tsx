@@ -7,6 +7,7 @@ import { ContextMenu, type MenuItem } from "./ContextMenu";
 import { PersonPicker, type PickerResult } from "./PersonPicker";
 import { aliveAtYear, datasetYearBounds } from "../stats";
 import { useFocusSet } from "./useFocusSet";
+import { HISTORICAL_EVENTS } from "../historicalEvents";
 
 // ─── Layout constants ────────────────────────────────
 const LANE_H = 46;
@@ -311,6 +312,31 @@ export function Timeline() {
               </div>
             ))}
           </div>
+
+          {/* Historical event bands — subtle color washes spanning the canvas.
+              Sit behind everything else so lanes/events render on top. */}
+          {HISTORICAL_EVENTS.filter((h) => {
+            const end = h.year + (h.span ?? 0);
+            return end >= minYear && h.year <= maxYear;
+          }).map((h, i) => {
+            const start = Math.max(h.year, minYear);
+            const end = Math.min(h.year + (h.span ?? 0), maxYear);
+            const x = yearToX(start);
+            const width = Math.max(2, yearToX(end) - x + pxPerYear);
+            return (
+              <div
+                key={`hist-${h.year}-${i}`}
+                className={`timeline-hist-band cat-${h.category}`}
+                style={{
+                  left: x,
+                  width,
+                  top: HEADER_H,
+                  height: lanes.length * LANE_H
+                }}
+                title={`${h.year}${h.span ? `–${h.year + h.span}` : ""} · ${h.title}`}
+              />
+            );
+          })}
 
           {/* Scrubber vertical line across canvas */}
           {scrubberYear != null && (

@@ -1114,6 +1114,29 @@ textarea { resize: vertical; min-height: 56px; font-family: inherit; }
   animation: view-enter 220ms ease-out;
 }
 
+/* ─── Historical event bands on the Timeline canvas ─── */
+.timeline-hist-band {
+  position: absolute;
+  pointer-events: none;
+  z-index: 0;
+  opacity: 0.13;
+  transition: opacity 200ms ease;
+  border-left: 1px dashed rgba(0, 0, 0, 0.12);
+  border-right: 1px dashed rgba(0, 0, 0, 0.12);
+}
+.timeline-hist-band:hover {
+  opacity: 0.22;
+  pointer-events: auto;
+}
+/* Category colors: war red, revolution orange, pandemic purple,
+   economy gold, tech teal, other soft blue */
+.timeline-hist-band.cat-war        { background: linear-gradient(180deg, rgba(207, 95, 82, 0.6), rgba(207, 95, 82, 0.25)); }
+.timeline-hist-band.cat-revolution { background: linear-gradient(180deg, rgba(212, 160, 90, 0.6), rgba(212, 160, 90, 0.25)); }
+.timeline-hist-band.cat-pandemic   { background: linear-gradient(180deg, rgba(154, 116, 184, 0.6), rgba(154, 116, 184, 0.25)); }
+.timeline-hist-band.cat-economy    { background: linear-gradient(180deg, rgba(106, 173, 128, 0.55), rgba(106, 173, 128, 0.2)); }
+.timeline-hist-band.cat-tech       { background: linear-gradient(180deg, rgba(91, 140, 201, 0.55), rgba(91, 140, 201, 0.2)); }
+.timeline-hist-band.cat-other      { background: linear-gradient(180deg, rgba(122, 110, 98, 0.45), rgba(122, 110, 98, 0.18)); }
+
 /* ═══ Scrollbars ═══ */
 ::-webkit-scrollbar { width: 10px; height: 10px; }
 ::-webkit-scrollbar-track { background: transparent; }
