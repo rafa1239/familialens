@@ -14,6 +14,7 @@
  */
 
 import type { DataState, FamilyEvent, Person, Place, EventDate } from "./types";
+import { generateAvatar } from "./portraits";
 
 export const DEMO_DATASET_ID = "dataset_demo_santos_dupont";
 
@@ -69,34 +70,42 @@ const DAVID   = "person_demo_david";
 const people: Record<string, Person> = {
   [ANTONIO]: {
     id: ANTONIO, name: "António Santos", gender: "M",
+    photo: generateAvatar("António Santos", "g0"),
     notes: "Born in Alfama, Lisbon. Moved to Paris after the war to work in construction."
   },
   [MARIE]: {
     id: MARIE, name: "Marie Dupont", gender: "F",
+    photo: generateAvatar("Marie Dupont", "g0"),
     notes: "Grew up in the Croix-Rousse district of Lyon. Met António at a dance in Lisbon."
   },
   [ISABEL]: {
     id: ISABEL, name: "Isabel Santos", gender: "F",
+    photo: generateAvatar("Isabel Santos", "g1"),
     notes: "Raised in Paris but always felt drawn to warmer latitudes."
   },
   [CARLOS]: {
     id: CARLOS, name: "Carlos Rivera", gender: "M",
+    photo: generateAvatar("Carlos Rivera", "g1"),
     notes: "Son of Spanish immigrants in Buenos Aires. Came to Europe on a scholarship."
   },
   [LUCIA]: {
     id: LUCIA, name: "Lucia Rivera", gender: "F",
+    photo: generateAvatar("Lucia Rivera", "g2"),
     notes: "Born in São Paulo during a thunderstorm. Works as a translator in New York."
   },
   [MIGUEL]: {
     id: MIGUEL, name: "Miguel Rivera", gender: "M",
+    photo: generateAvatar("Miguel Rivera", "g2"),
     notes: "Software engineer who moved to Tokyo for a startup. Speaks Japanese fluently."
   },
   [SOFIA]: {
     id: SOFIA, name: "Sofia Rivera", gender: "F",
+    photo: generateAvatar("Sofia Rivera", "g2"),
     notes: "Returned to Lisbon — the city her grandfather left. Runs a ceramics studio in Alfama."
   },
   [DAVID]: {
     id: DAVID, name: "David Chen", gender: "M",
+    photo: generateAvatar("David Chen", "g2"),
     notes: "Born in Queens, New York. Met Lucia at a book club in the East Village."
   }
 };
