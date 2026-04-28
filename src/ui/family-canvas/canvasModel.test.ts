@@ -1,7 +1,12 @@
 import { describe, expect, it } from "vitest";
 import { computeTreeLayout } from "../../treeLayout";
 import { SCHEMA_VERSION, type DataState } from "../../types";
-import { buildCanvasModel, filterDataForFocus } from "./canvasModel";
+import {
+  buildCanvasModel,
+  buildPersonInsight,
+  filterDataForFocus,
+  kinshipRoleFor
+} from "./canvasModel";
 
 function dataState(): DataState {
   return {
@@ -68,5 +73,39 @@ describe("family canvas model", () => {
     expect(filtered.people.mom).toBeUndefined();
     expect(filtered.events.birth).toBeUndefined();
     expect(filtered.events.marriage).toBeUndefined();
+  });
+
+  it("classifies selected-person kinship roles for canvas emphasis", () => {
+    const data = dataState();
+
+    expect(kinshipRoleFor(data, "kid", "kid")).toBe("self");
+    expect(kinshipRoleFor(data, "kid", "dad")).toBe("parent");
+    expect(kinshipRoleFor(data, "dad", "kid")).toBe("child");
+    expect(kinshipRoleFor(data, "dad", "mom")).toBe("spouse");
+    expect(kinshipRoleFor(data, null, "mom")).toBe("other");
+  });
+
+  it("builds a compact story and evidence summary from event facts", () => {
+    const data = dataState();
+    data.events.residence = {
+      id: "residence",
+      type: "residence",
+      people: ["kid"],
+      date: { display: "2022", sortKey: 2022, precision: "year", iso: "2022" },
+      place: { name: "Porto" },
+      sources: [],
+      photos: []
+    };
+
+    const insight = buildPersonInsight(data, "kid");
+
+    expect(insight.parents).toBe(2);
+    expect(insight.events).toBe(2);
+    expect(insight.sourcedEvents).toBe(1);
+    expect(insight.missingSources).toBe(1);
+    expect(insight.primaryPlace).toBe("Porto");
+    expect(insight.storyLines.map((line) => line.text)).toContain("Born 2010.");
+    expect(insight.storyLines.map((line) => line.text)).toContain("Child of Dad and Mom.");
+    expect(insight.storyLines.some((line) => line.text.includes("needs a source"))).toBe(true);
   });
 });

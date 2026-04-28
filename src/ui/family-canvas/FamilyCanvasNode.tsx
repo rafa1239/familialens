@@ -6,13 +6,15 @@ import {
   initials,
   lifespanLabel,
   truncateLabel,
-  type FamilyCanvasNode
+  type FamilyCanvasNode,
+  type KinshipRole
 } from "./canvasModel";
 
 type FamilyCanvasNodeProps = {
   node: FamilyCanvasNode;
   isSelected: boolean;
   isDimmed: boolean;
+  kinshipRole: KinshipRole | null;
   onClick: (event: MouseEvent<SVGGElement>) => void;
   onContextMenu: (event: MouseEvent<SVGGElement>) => void;
 };
@@ -21,6 +23,7 @@ export function FamilyCanvasNodeView({
   node,
   isSelected,
   isDimmed,
+  kinshipRole,
   onClick,
   onContextMenu
 }: FamilyCanvasNodeProps) {
@@ -31,7 +34,7 @@ export function FamilyCanvasNodeView({
 
   return (
     <g
-      className={`family-node ${isSelected ? "selected" : ""} ${isDimmed ? "dimmed" : ""}`}
+      className={`family-node ${isSelected ? "selected" : ""} ${isDimmed ? "dimmed" : ""} ${kinshipRole ? `kin-${kinshipRole}` : ""}`}
       transform={`translate(${node.x - CANVAS_NODE_WIDTH / 2} ${node.y - CANVAS_NODE_HEIGHT / 2})`}
       onClick={onClick}
       onContextMenu={onContextMenu}
@@ -47,6 +50,16 @@ export function FamilyCanvasNodeView({
         rx={12}
         className="family-node-card"
       />
+      {kinshipRole && kinshipRole !== "other" && (
+        <rect
+          x={0}
+          y={0}
+          width={5}
+          height={CANVAS_NODE_HEIGHT}
+          rx={12}
+          className={`family-node-relation family-node-relation-${kinshipRole}`}
+        />
+      )}
       <rect
         x={0}
         y={0}

@@ -13,10 +13,13 @@ import { PersonPicker, type PickerResult } from "../PersonPicker";
 import { useFocusSet } from "../useFocusSet";
 import {
   buildCanvasModel,
+  buildPersonInsight,
   CANVAS_NODE_HEIGHT,
   CANVAS_NODE_WIDTH,
   filterDataForFocus,
+  kinshipRoleFor,
   type FamilyCanvasNode,
+  type KinshipRole,
   type RenderedParentEdge
 } from "./canvasModel";
 import { FamilyCanvasHud } from "./FamilyCanvasHud";
@@ -131,6 +134,17 @@ export function FamilyCanvas() {
   const selectedNode = selectedPersonId ? model.nodeById.get(selectedPersonId) : null;
   const selectedPerson = selectedPersonId ? data.people[selectedPersonId] : null;
   const focusPerson = selectedPersonId ? data.people[selectedPersonId] : null;
+  const kinshipByNode = useMemo(() => {
+    const roles = new Map<string, KinshipRole>();
+    for (const node of model.nodes) {
+      roles.set(node.id, kinshipRoleFor(data, selectedPersonId, node.id));
+    }
+    return roles;
+  }, [data, model.nodes, selectedPersonId]);
+  const selectedInsight = useMemo(
+    () => (selectedPersonId ? buildPersonInsight(data, selectedPersonId) : null),
+    [data, selectedPersonId]
+  );
 
   const handleWheel = (event: WheelEvent<HTMLDivElement>) => {
     event.preventDefault();
@@ -274,6 +288,16 @@ export function FamilyCanvas() {
         <span>{zoomPercent}%</span>
       </div>
 
+      {selectedPerson && selectedInsight && (
+        <div className="family-insight-strip">
+          <strong>{selectedPerson.name || "Unnamed"}</strong>
+          <span>{countLabel(selectedInsight.parents, "parent")}</span>
+          <span>{countLabel(selectedInsight.children, "child", "children")}</span>
+          <span>{countLabel(selectedInsight.spouses, "spouse")}</span>
+          <span>{selectedInsight.events === 0 ? "no events" : `${selectedInsight.sourcedEvents}/${selectedInsight.events} sourced`}</span>
+        </div>
+      )}
+
       <div
         className="family-canvas-controls"
         onPointerDown={(event) => event.stopPropagation()}
@@ -314,13 +338,17 @@ export function FamilyCanvas() {
         <svg className="family-canvas-stage" aria-label="Family tree canvas">
           <g transform={`translate(${view.x} ${view.y}) scale(${view.zoom})`}>
             {model.coupleUnits.map((unit) => (
-              <CoupleBackground key={unit.id} unit={unit} />
+              <CoupleBackground
+                key={unit.id}
+                unit={unit}
+                kinshipState={coupleKinshipState(unit.members, selectedPersonId, kinshipByNode)}
+              />
             ))}
 
             {visibleEdges.map((edge, index) => (
               <path
                 key={`edge-${index}`}
-                className="family-edge parent"
+                className={`family-edge parent ${edgeKinshipState(edge, selectedPersonId, kinshipByNode)}`}
                 d={parentPath(edge)}
               />
             ))}
@@ -331,6 +359,7 @@ export function FamilyCanvas() {
                 node={node}
                 isSelected={node.id === selectedPersonId}
                 isDimmed={!!focusSet && !focusSet.has(node.id)}
+                kinshipRole={selectedPersonId ? kinshipByNode.get(node.id) ?? "other" : null}
                 onClick={(event) => {
                   event.stopPropagation();
                   selectPerson(node.id);
@@ -480,7 +509,13 @@ function EmptyCanvas({
   );
 }
 
-function CoupleBackground({ unit }: { unit: { centerX: number; y: number; width: number } }) {
+function CoupleBackground({
+  unit,
+  kinshipState
+}: {
+  unit: { centerX: number; y: number; width: number };
+  kinshipState: string;
+}) {
   const padX = 10;
   const padY = 10;
   return (
@@ -490,7 +525,7 @@ function CoupleBackground({ unit }: { unit: { centerX: number; y: number; width:
       width={unit.width + padX * 2}
       height={CANVAS_NODE_HEIGHT + padY * 2}
       rx={18}
-      className="family-couple-bg"
+      className={`family-couple-bg ${kinshipState}`}
     />
   );
 }
@@ -538,6 +573,43 @@ function edgeVisible(edge: RenderedParentEdge, rect: { minX: number; maxX: numbe
       overscan
     )
   );
+}
+
+function edgeKinshipState(
+  edge: RenderedParentEdge,
+  selectedPersonId: string | null,
+  kinshipByNode: Map<string, KinshipRole>
+): string {
+  if (!selectedPersonId) return "";
+  const ids = edgePersonIds(edge);
+  if (ids.includes(selectedPersonId)) return "kin-active";
+  if (ids.some((id) => isCloseKin(kinshipByNode.get(id)))) return "kin-near";
+  return "kin-muted";
+}
+
+function coupleKinshipState(
+  memberIds: string[],
+  selectedPersonId: string | null,
+  kinshipByNode: Map<string, KinshipRole>
+): string {
+  if (!selectedPersonId) return "";
+  if (memberIds.includes(selectedPersonId)) return "kin-active";
+  if (memberIds.some((id) => isCloseKin(kinshipByNode.get(id)))) return "kin-near";
+  return "kin-muted";
+}
+
+function edgePersonIds(edge: RenderedParentEdge): string[] {
+  return edge.kind === "single"
+    ? [edge.parent.id, edge.child.id]
+    : [edge.parentA.id, edge.parentB.id, edge.child.id];
+}
+
+function isCloseKin(role: KinshipRole | undefined): boolean {
+  return !!role && role !== "other";
+}
+
+function countLabel(count: number, singular: string, plural = `${singular}s`): string {
+  return `${count} ${count === 1 ? singular : plural}`;
 }
 
 function pickerTitle(anchorName: string, relation: Relation): string {
