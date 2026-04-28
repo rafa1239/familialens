@@ -5,6 +5,7 @@ import {
   buildCanvasModel,
   buildPersonInsight,
   filterDataForFocus,
+  hasFreeCanvasPositions,
   kinshipRoleFor
 } from "./canvasModel";
 
@@ -107,5 +108,19 @@ describe("family canvas model", () => {
     expect(insight.storyLines.map((line) => line.text)).toContain("Born 2010.");
     expect(insight.storyLines.map((line) => line.text)).toContain("Child of Dad and Mom.");
     expect(insight.storyLines.some((line) => line.text.includes("needs a source"))).toBe(true);
+  });
+
+  it("applies free canvas positions without changing relationship badges", () => {
+    const data = dataState();
+    const model = buildCanvasModel(data, computeTreeLayout(data), {
+      kid: { x: 900, y: 420, pinned: true }
+    });
+
+    expect(model.nodeById.get("kid")?.x).toBe(900);
+    expect(model.nodeById.get("kid")?.y).toBe(420);
+    expect(model.nodeById.get("kid")?.badges.parents).toBe(2);
+    expect(model.bounds.maxX).toBeGreaterThan(990);
+    expect(hasFreeCanvasPositions({ kid: { x: 900, y: 420, pinned: true } })).toBe(true);
+    expect(hasFreeCanvasPositions({ kid: { x: Number.NaN, y: 420 } })).toBe(false);
   });
 });

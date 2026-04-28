@@ -1,4 +1,4 @@
-import type { MouseEvent } from "react";
+import type { MouseEvent, PointerEvent } from "react";
 import { PhotoThumb } from "../PhotoThumb";
 import {
   CANVAS_NODE_HEIGHT,
@@ -14,16 +14,24 @@ type FamilyCanvasNodeProps = {
   node: FamilyCanvasNode;
   isSelected: boolean;
   isDimmed: boolean;
+  isPinned: boolean;
   kinshipRole: KinshipRole | null;
+  onPickRelation?: (relation: NodeRelationAction) => void;
+  onPointerDown: (event: PointerEvent<SVGGElement>) => void;
   onClick: (event: MouseEvent<SVGGElement>) => void;
   onContextMenu: (event: MouseEvent<SVGGElement>) => void;
 };
+
+export type NodeRelationAction = "parent" | "child" | "spouse";
 
 export function FamilyCanvasNodeView({
   node,
   isSelected,
   isDimmed,
+  isPinned,
   kinshipRole,
+  onPickRelation,
+  onPointerDown,
   onClick,
   onContextMenu
 }: FamilyCanvasNodeProps) {
@@ -34,8 +42,9 @@ export function FamilyCanvasNodeView({
 
   return (
     <g
-      className={`family-node ${isSelected ? "selected" : ""} ${isDimmed ? "dimmed" : ""} ${kinshipRole ? `kin-${kinshipRole}` : ""}`}
+      className={`family-node ${isSelected ? "selected" : ""} ${isDimmed ? "dimmed" : ""} ${isPinned ? "pinned" : ""} ${kinshipRole ? `kin-${kinshipRole}` : ""}`}
       transform={`translate(${node.x - CANVAS_NODE_WIDTH / 2} ${node.y - CANVAS_NODE_HEIGHT / 2})`}
+      onPointerDown={onPointerDown}
       onClick={onClick}
       onContextMenu={onContextMenu}
       role="button"
@@ -94,6 +103,76 @@ export function FamilyCanvasNodeView({
         {badges.events} events
         {badges.sources > 0 ? ` / ${badges.sources} sources` : ""}
       </text>
+
+      {isPinned && (
+        <g className="family-node-pin" transform={`translate(${CANVAS_NODE_WIDTH - 20} ${CANVAS_NODE_HEIGHT - 18})`}>
+          <circle r={5} />
+          <title>Free position</title>
+        </g>
+      )}
+
+      {isSelected && onPickRelation && (
+        <g className="family-node-ports">
+          <RelationPort
+            relation="parent"
+            label="Child of"
+            x={CANVAS_NODE_WIDTH / 2}
+            y={-19}
+            onPickRelation={onPickRelation}
+          />
+          <RelationPort
+            relation="child"
+            label="Parent of"
+            x={CANVAS_NODE_WIDTH / 2}
+            y={CANVAS_NODE_HEIGHT + 19}
+            onPickRelation={onPickRelation}
+          />
+          <RelationPort
+            relation="spouse"
+            label="Married"
+            x={CANVAS_NODE_WIDTH + 38}
+            y={CANVAS_NODE_HEIGHT / 2}
+            onPickRelation={onPickRelation}
+          />
+        </g>
+      )}
+    </g>
+  );
+}
+
+function RelationPort({
+  relation,
+  label,
+  x,
+  y,
+  onPickRelation
+}: {
+  relation: NodeRelationAction;
+  label: string;
+  x: number;
+  y: number;
+  onPickRelation: (relation: NodeRelationAction) => void;
+}) {
+  const width = relation === "spouse" ? 62 : 72;
+  return (
+    <g
+      className={`family-node-port port-${relation}`}
+      transform={`translate(${x} ${y})`}
+      role="button"
+      aria-label={label}
+      onPointerDown={(event) => {
+        event.preventDefault();
+        event.stopPropagation();
+      }}
+      onClick={(event) => {
+        event.preventDefault();
+        event.stopPropagation();
+        onPickRelation(relation);
+      }}
+    >
+      <title>{label}</title>
+      <rect x={-width / 2} y={-11} width={width} height={22} rx={11} />
+      <text y={4} textAnchor="middle">{label}</text>
     </g>
   );
 }

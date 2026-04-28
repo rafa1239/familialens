@@ -17,8 +17,10 @@ import {
   CANVAS_NODE_HEIGHT,
   CANVAS_NODE_WIDTH,
   filterDataForFocus,
+  hasFreeCanvasPositions,
   kinshipRoleFor,
   type FamilyCanvasNode,
+  type FamilyCoupleUnit,
   type KinshipRole,
   type RenderedParentEdge
 } from "./canvasModel";
@@ -32,10 +34,20 @@ import {
   worldRectFromView,
   type CanvasSize
 } from "./useCanvasViewport";
+import { useFreeCanvasPositions } from "./useFreeCanvasPositions";
 
 type Relation = "parent" | "spouse" | "child";
 type PanState = {
   pointerId: number;
+  startX: number;
+  startY: number;
+  baseX: number;
+  baseY: number;
+  moved: boolean;
+};
+type NodeDragState = {
+  pointerId: number;
+  personId: string;
   startX: number;
   startY: number;
   baseX: number;
@@ -64,14 +76,25 @@ export function FamilyCanvas() {
   const setFocusMode = useStore((state) => state.setFocusMode);
 
   const focusSet = useFocusSet();
+  const {
+    positions: freePositions,
+    setPersonPosition,
+    releasePersonPosition,
+    clearPositions
+  } = useFreeCanvasPositions(data);
+  const hasFreeLayout = hasFreeCanvasPositions(freePositions);
   const layoutData = useMemo(() => filterDataForFocus(data, focusSet), [data, focusSet]);
   const layout = useMemo(() => computeTreeLayout(layoutData), [layoutData]);
-  const model = useMemo(() => buildCanvasModel(data, layout), [data, layout]);
+  const model = useMemo(
+    () => buildCanvasModel(data, layout, freePositions),
+    [data, freePositions, layout]
+  );
 
   const containerRef = useRef<HTMLDivElement>(null);
   const suppressClickRef = useRef(false);
   const [size, setSize] = useState<CanvasSize>({ width: 0, height: 0 });
   const [pan, setPan] = useState<PanState | null>(null);
+  const [nodeDrag, setNodeDrag] = useState<NodeDragState | null>(null);
   const [contextMenu, setContextMenu] = useState<{
     x: number;
     y: number;
@@ -93,21 +116,23 @@ export function FamilyCanvas() {
     return () => observer.disconnect();
   }, []);
 
-  const fitKey = `${model.nodes.length}:${model.bounds.minX}:${model.bounds.maxX}:${model.bounds.minY}:${model.bounds.maxY}`;
+  const fitKey = `${layout.nodes.length}:${layout.bounds.minX}:${layout.bounds.maxX}:${layout.bounds.minY}:${layout.bounds.maxY}:${focusMode}`;
   useEffect(() => {
     if (model.nodes.length === 0 || size.width <= 0 || size.height <= 0) return;
-    fitToBounds(model.bounds, size, 130);
-  }, [fitKey, fitToBounds, model.bounds, model.nodes.length, size.height, size.width]);
+    if (hasFreeLayout) return;
+    fitToBounds(layout.bounds, size, 130);
+  }, [fitKey, fitToBounds, hasFreeLayout, layout.bounds, model.nodes.length, size.height, size.width]);
 
   useEffect(() => {
     if (!selectedPersonId || size.width <= 0 || size.height <= 0) return;
+    if (nodeDrag) return;
     const node = model.nodeById.get(selectedPersonId);
     if (!node) return;
     const rect = worldRectFromView(view, size);
     if (!pointInsideBounds({ x: node.x, y: node.y }, rect, 120)) {
       centerOnPoint({ x: node.x, y: node.y }, size);
     }
-  }, [centerOnPoint, model.nodeById, selectedPersonId, size, view]);
+  }, [centerOnPoint, model.nodeById, nodeDrag, selectedPersonId, size, view]);
 
   const visibleRect = useMemo(() => worldRectFromView(view, size), [size, view]);
   const visibleNodes = useMemo(
@@ -171,6 +196,16 @@ export function FamilyCanvas() {
   };
 
   const handlePointerMove = (event: PointerEvent<HTMLDivElement>) => {
+    if (nodeDrag?.pointerId === event.pointerId) {
+      event.preventDefault();
+      const dx = (event.clientX - nodeDrag.startX) / view.zoom;
+      const dy = (event.clientY - nodeDrag.startY) / view.zoom;
+      const moved = nodeDrag.moved || Math.hypot(event.clientX - nodeDrag.startX, event.clientY - nodeDrag.startY) > 3;
+      setPersonPosition(nodeDrag.personId, nodeDrag.baseX + dx, nodeDrag.baseY + dy);
+      if (moved !== nodeDrag.moved) setNodeDrag({ ...nodeDrag, moved });
+      return;
+    }
+
     if (!pan || pan.pointerId !== event.pointerId) return;
     const dx = event.clientX - pan.startX;
     const dy = event.clientY - pan.startY;
@@ -184,10 +219,38 @@ export function FamilyCanvas() {
   };
 
   const handlePointerUp = (event: PointerEvent<HTMLDivElement>) => {
+    if (nodeDrag?.pointerId === event.pointerId) {
+      if (nodeDrag.moved) suppressClickRef.current = true;
+      setNodeDrag(null);
+      return;
+    }
+
     if (pan?.pointerId === event.pointerId && pan.moved) {
       suppressClickRef.current = true;
     }
     setPan(null);
+  };
+
+  const handleNodePointerDown = (
+    event: PointerEvent<SVGGElement>,
+    node: FamilyCanvasNode
+  ) => {
+    if (event.button !== 0) return;
+    event.preventDefault();
+    event.stopPropagation();
+    event.currentTarget.setPointerCapture?.(event.pointerId);
+    selectPerson(node.id);
+    selectEvent(null);
+    setContextMenu(null);
+    setNodeDrag({
+      pointerId: event.pointerId,
+      personId: node.id,
+      startX: event.clientX,
+      startY: event.clientY,
+      baseX: node.x,
+      baseY: node.y,
+      moved: false
+    });
   };
 
   const handleBackgroundClick = () => {
@@ -273,7 +336,7 @@ export function FamilyCanvas() {
   return (
     <div
       ref={containerRef}
-      className={`family-canvas ${pan ? "panning" : ""}`}
+      className={`family-canvas ${pan ? "panning" : ""} ${nodeDrag ? "dragging-node" : ""}`}
       onWheel={handleWheel}
       onPointerDown={handlePointerDown}
       onPointerMove={handlePointerMove}
@@ -311,6 +374,16 @@ export function FamilyCanvas() {
         </button>
         <button title="Fit tree" onClick={() => fitToBounds(model.bounds, size, 130)}>
           Fit
+        </button>
+        <button
+          title="Return to automatic layout"
+          onClick={() => {
+            clearPositions();
+            fitToBounds(layout.bounds, size, 130);
+            pushToast("Canvas tidied.", "info");
+          }}
+        >
+          Tidy
         </button>
       </div>
 
@@ -359,8 +432,19 @@ export function FamilyCanvas() {
                 node={node}
                 isSelected={node.id === selectedPersonId}
                 isDimmed={!!focusSet && !focusSet.has(node.id)}
+                isPinned={!!freePositions[node.id]}
                 kinshipRole={selectedPersonId ? kinshipByNode.get(node.id) ?? "other" : null}
+                onPickRelation={
+                  node.id === selectedPersonId
+                    ? (relation) => openPicker(node.id, relation)
+                    : undefined
+                }
+                onPointerDown={(event) => handleNodePointerDown(event, node)}
                 onClick={(event) => {
+                  if (suppressClickRef.current) {
+                    suppressClickRef.current = false;
+                    return;
+                  }
                   event.stopPropagation();
                   selectPerson(node.id);
                   selectEvent(null);
@@ -432,6 +516,15 @@ export function FamilyCanvas() {
               label: "Add event",
               onClick: () => handleAddEvent(contextMenu.personId)
             },
+            ...(freePositions[contextMenu.personId]
+              ? [
+                  {
+                    kind: "action" as const,
+                    label: "Release position",
+                    onClick: () => releasePersonPosition(contextMenu.personId)
+                  }
+                ]
+              : []),
             { kind: "separator" },
             {
               kind: "action",
@@ -513,7 +606,7 @@ function CoupleBackground({
   unit,
   kinshipState
 }: {
-  unit: { centerX: number; y: number; width: number };
+  unit: FamilyCoupleUnit;
   kinshipState: string;
 }) {
   const padX = 10;
@@ -521,9 +614,9 @@ function CoupleBackground({
   return (
     <rect
       x={unit.centerX - unit.width / 2 - padX}
-      y={unit.y - CANVAS_NODE_HEIGHT / 2 - padY}
+      y={unit.y - unit.height / 2 - padY}
       width={unit.width + padX * 2}
-      height={CANVAS_NODE_HEIGHT + padY * 2}
+      height={unit.height + padY * 2}
       rx={18}
       className={`family-couple-bg ${kinshipState}`}
     />

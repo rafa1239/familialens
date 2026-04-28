@@ -35,6 +35,18 @@ export type FamilyCanvasNode = {
   badges: CanvasBadges;
 };
 
+export type FreeCanvasPosition = {
+  x: number;
+  y: number;
+  pinned?: boolean;
+};
+
+export type FreeCanvasPositions = Record<string, FreeCanvasPosition>;
+
+export type FamilyCoupleUnit = Omit<TreeUnit, "height"> & {
+  height: number;
+};
+
 export type RenderedParentEdge =
   | { kind: "single"; parent: FamilyCanvasNode; child: FamilyCanvasNode }
   | {
@@ -47,7 +59,7 @@ export type RenderedParentEdge =
 export type FamilyCanvasModel = {
   nodes: FamilyCanvasNode[];
   nodeById: Map<string, FamilyCanvasNode>;
-  coupleUnits: TreeUnit[];
+  coupleUnits: FamilyCoupleUnit[];
   renderedParentEdges: RenderedParentEdge[];
   bounds: WorldBounds;
 };
@@ -93,15 +105,20 @@ export function filterDataForFocus(
   return { ...data, people, events };
 }
 
-export function buildCanvasModel(data: DataState, layout: TreeLayout): FamilyCanvasModel {
+export function buildCanvasModel(
+  data: DataState,
+  layout: TreeLayout,
+  freePositions: FreeCanvasPositions = {}
+): FamilyCanvasModel {
   const eventStats = buildEventStats(data);
   const nodes = layout.nodes.map((node): FamilyCanvasNode => {
     const stats = eventStats.get(node.id) ?? { events: 0, sources: 0 };
+    const freePosition = validFreePosition(freePositions[node.id]);
     return {
       id: node.id,
       person: node.person,
-      x: node.x,
-      y: node.y,
+      x: freePosition?.x ?? node.x,
+      y: freePosition?.y ?? node.y,
       generation: node.generation,
       unitId: node.unitId,
       birthYear: node.birthYear,
@@ -122,10 +139,14 @@ export function buildCanvasModel(data: DataState, layout: TreeLayout): FamilyCan
   return {
     nodes,
     nodeById,
-    coupleUnits: layout.units.filter((unit) => unit.members.length === 2),
+    coupleUnits: buildCoupleUnits(layout, nodeById),
     renderedParentEdges,
-    bounds: layout.bounds
+    bounds: boundsForNodes(nodes)
   };
+}
+
+export function hasFreeCanvasPositions(freePositions: FreeCanvasPositions): boolean {
+  return Object.values(freePositions).some((position) => !!validFreePosition(position));
 }
 
 export function initials(name: string): string {
@@ -341,6 +362,51 @@ function pluralize(count: number, singular: string): string {
 function primaryPlaceFor(events: FamilyEvent[]): string | null {
   const firstPlacedEvent = events.find((event) => event.place?.name?.trim());
   return firstPlacedEvent?.place?.name?.trim() ?? null;
+}
+
+function validFreePosition(position: FreeCanvasPosition | undefined): FreeCanvasPosition | null {
+  if (!position) return null;
+  if (!Number.isFinite(position.x) || !Number.isFinite(position.y)) return null;
+  return position;
+}
+
+function buildCoupleUnits(
+  layout: TreeLayout,
+  nodeById: Map<string, FamilyCanvasNode>
+): FamilyCoupleUnit[] {
+  return layout.units
+    .filter((unit) => unit.members.length === 2)
+    .map((unit) => {
+      const first = nodeById.get(unit.members[0]);
+      const second = nodeById.get(unit.members[1]);
+      if (!first || !second) return { ...unit, height: CANVAS_NODE_HEIGHT };
+      const width = Math.max(CANVAS_NODE_WIDTH, Math.abs(first.x - second.x) + CANVAS_NODE_WIDTH);
+      const height = Math.max(CANVAS_NODE_HEIGHT, Math.abs(first.y - second.y) + CANVAS_NODE_HEIGHT);
+      return {
+        ...unit,
+        centerX: (first.x + second.x) / 2,
+        y: (first.y + second.y) / 2,
+        width,
+        height
+      };
+    });
+}
+
+function boundsForNodes(nodes: FamilyCanvasNode[]): WorldBounds {
+  if (nodes.length === 0) {
+    return { minX: 0, maxX: 0, minY: 0, maxY: 0 };
+  }
+  let minX = Infinity;
+  let maxX = -Infinity;
+  let minY = Infinity;
+  let maxY = -Infinity;
+  for (const node of nodes) {
+    minX = Math.min(minX, node.x - CANVAS_NODE_WIDTH / 2);
+    maxX = Math.max(maxX, node.x + CANVAS_NODE_WIDTH / 2);
+    minY = Math.min(minY, node.y - CANVAS_NODE_HEIGHT / 2);
+    maxY = Math.max(maxY, node.y + CANVAS_NODE_HEIGHT / 2);
+  }
+  return { minX, maxX, minY, maxY };
 }
 
 function buildEventStats(data: DataState): Map<string, EventStats> {

@@ -773,7 +773,8 @@ textarea { resize: vertical; min-height: 56px; font-family: inherit; }
     linear-gradient(180deg, var(--bg-surface) 0%, var(--bg) 100%);
   background-size: 24px 24px, 100% 100%;
 }
-.family-canvas.panning { cursor: grabbing; }
+.family-canvas.panning,
+.family-canvas.dragging-node { cursor: grabbing; }
 
 .family-canvas-stage {
   position: absolute;
@@ -966,6 +967,9 @@ textarea { resize: vertical; min-height: 56px; font-family: inherit; }
   stroke-width: 2.5;
   filter: drop-shadow(0 4px 12px rgba(184, 113, 24, 0.24)) drop-shadow(0 14px 36px rgba(40, 28, 12, 0.16));
 }
+.family-node.pinned .family-node-card {
+  stroke-dasharray: 7 4;
+}
 .family-node.kin-parent .family-node-card {
   stroke: rgba(77, 130, 187, 0.48);
 }
@@ -1050,6 +1054,42 @@ textarea { resize: vertical; min-height: 56px; font-family: inherit; }
   font-weight: 700;
 }
 .family-node-badge.active text { fill: var(--accent-teal); }
+.family-node-pin circle {
+  fill: var(--accent);
+  stroke: rgba(255, 255, 255, 0.96);
+  stroke-width: 2;
+  filter: drop-shadow(0 1px 3px rgba(40, 28, 12, 0.22));
+}
+.family-node-ports {
+  pointer-events: auto;
+}
+.family-node-port {
+  cursor: pointer;
+}
+.family-node-port rect {
+  fill: rgba(255, 255, 255, 0.96);
+  stroke: rgba(36, 127, 117, 0.34);
+  stroke-width: 1;
+  filter: drop-shadow(0 2px 7px rgba(40, 28, 12, 0.16));
+}
+.family-node-port text {
+  fill: var(--accent-teal);
+  font-family: "Inter", sans-serif;
+  font-size: 9.6px;
+  font-weight: 800;
+  letter-spacing: 0;
+  pointer-events: none;
+}
+.family-node-port:hover rect {
+  fill: var(--accent-teal-soft);
+  stroke: rgba(36, 127, 117, 0.52);
+}
+.family-node-port.port-spouse rect {
+  stroke: rgba(212, 148, 60, 0.45);
+}
+.family-node-port.port-spouse text {
+  fill: var(--accent);
+}
 
 .family-minimap {
   position: absolute;
