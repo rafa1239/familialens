@@ -1,7 +1,7 @@
 {
-  "name": "familialens-v7",
+  "name": "familialens-v8",
   "private": true,
-  "version": "7.0.0-phase1",
+  "version": "8.0.0-family-canvas",
   "type": "module",
   "scripts": {
     "dev": "vite",

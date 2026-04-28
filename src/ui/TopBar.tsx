@@ -54,7 +54,7 @@ export function TopBar({
     const blob = new Blob([JSON.stringify(data, null, 2)], {
       type: "application/json"
     });
-    downloadBlob(blob, `familialens-v7-${data.datasetId}.json`);
+    downloadBlob(blob, `familialens-v8-${data.datasetId}.json`);
     setStatus("Exported JSON.");
     setTimeout(() => setStatus(null), 2000);
   };
@@ -62,7 +62,7 @@ export function TopBar({
   const handleExportGedcom = () => {
     const text = exportGedcom(data);
     const blob = new Blob([text], { type: "text/plain" });
-    downloadBlob(blob, `familialens-v7-${data.datasetId}.ged`);
+    downloadBlob(blob, `familialens-v8-${data.datasetId}.ged`);
     setStatus("Exported GEDCOM.");
     setTimeout(() => setStatus(null), 2000);
   };
@@ -95,7 +95,7 @@ export function TopBar({
       resolvedPhotos
     });
     const blob = new Blob([html], { type: "text/html" });
-    downloadBlob(blob, `familialens-v7-${data.datasetId}.html`);
+    downloadBlob(blob, `familialens-v8-${data.datasetId}.html`);
     setStatus("Exported HTML album.");
     setTimeout(() => setStatus(null), 2500);
   };
@@ -185,7 +185,7 @@ export function TopBar({
     <header className="topbar">
       <div className="brand">
         <h1>FamiliaLens</h1>
-        <span className="version">v7</span>
+        <span className="version">v8</span>
       </div>
 
       <div className="topbar-stats">

@@ -1,0 +1,547 @@
+import {
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type PointerEvent,
+  type WheelEvent
+} from "react";
+import { useStore } from "../../store";
+import { computeTreeLayout } from "../../treeLayout";
+import { ContextMenu, type MenuItem } from "../ContextMenu";
+import { PersonPicker, type PickerResult } from "../PersonPicker";
+import { useFocusSet } from "../useFocusSet";
+import {
+  buildCanvasModel,
+  CANVAS_NODE_HEIGHT,
+  CANVAS_NODE_WIDTH,
+  filterDataForFocus,
+  type FamilyCanvasNode,
+  type RenderedParentEdge
+} from "./canvasModel";
+import { FamilyCanvasHud } from "./FamilyCanvasHud";
+import { FamilyCanvasMiniMap } from "./FamilyCanvasMiniMap";
+import { FamilyCanvasNodeView } from "./FamilyCanvasNode";
+import {
+  nodeIntersectsBounds,
+  pointInsideBounds,
+  useCanvasViewport,
+  worldRectFromView,
+  type CanvasSize
+} from "./useCanvasViewport";
+
+type Relation = "parent" | "spouse" | "child";
+type PanState = {
+  pointerId: number;
+  startX: number;
+  startY: number;
+  baseX: number;
+  baseY: number;
+  moved: boolean;
+};
+
+const EDGE_OVERSCAN = 360;
+const NODE_OVERSCAN = 280;
+
+export function FamilyCanvas() {
+  const data = useStore((state) => state.data);
+  const selectedPersonId = useStore((state) => state.selectedPersonId);
+  const focusMode = useStore((state) => state.focusMode);
+  const selectPerson = useStore((state) => state.selectPerson);
+  const selectEvent = useStore((state) => state.selectEvent);
+  const addPerson = useStore((state) => state.addPerson);
+  const deletePerson = useStore((state) => state.deletePerson);
+  const createRelative = useStore((state) => state.createRelative);
+  const linkParent = useStore((state) => state.linkParent);
+  const linkSpouse = useStore((state) => state.linkSpouse);
+  const addEvent = useStore((state) => state.addEvent);
+  const loadDemo = useStore((state) => state.loadDemo);
+  const pushToast = useStore((state) => state.pushToast);
+  const setViewMode = useStore((state) => state.setViewMode);
+  const setFocusMode = useStore((state) => state.setFocusMode);
+
+  const focusSet = useFocusSet();
+  const layoutData = useMemo(() => filterDataForFocus(data, focusSet), [data, focusSet]);
+  const layout = useMemo(() => computeTreeLayout(layoutData), [layoutData]);
+  const model = useMemo(() => buildCanvasModel(data, layout), [data, layout]);
+
+  const containerRef = useRef<HTMLDivElement>(null);
+  const suppressClickRef = useRef(false);
+  const [size, setSize] = useState<CanvasSize>({ width: 0, height: 0 });
+  const [pan, setPan] = useState<PanState | null>(null);
+  const [contextMenu, setContextMenu] = useState<{
+    x: number;
+    y: number;
+    personId: string;
+  } | null>(null);
+  const [picker, setPicker] = useState<{ personId: string; relation: Relation } | null>(null);
+  const { view, setView, zoomAtPoint, fitToBounds, centerOnPoint } = useCanvasViewport();
+
+  useEffect(() => {
+    const element = containerRef.current;
+    if (!element) return;
+    const updateSize = () => {
+      const rect = element.getBoundingClientRect();
+      setSize({ width: rect.width, height: rect.height });
+    };
+    updateSize();
+    const observer = new ResizeObserver(updateSize);
+    observer.observe(element);
+    return () => observer.disconnect();
+  }, []);
+
+  const fitKey = `${model.nodes.length}:${model.bounds.minX}:${model.bounds.maxX}:${model.bounds.minY}:${model.bounds.maxY}`;
+  useEffect(() => {
+    if (model.nodes.length === 0 || size.width <= 0 || size.height <= 0) return;
+    fitToBounds(model.bounds, size, 130);
+  }, [fitKey, fitToBounds, model.bounds, model.nodes.length, size.height, size.width]);
+
+  useEffect(() => {
+    if (!selectedPersonId || size.width <= 0 || size.height <= 0) return;
+    const node = model.nodeById.get(selectedPersonId);
+    if (!node) return;
+    const rect = worldRectFromView(view, size);
+    if (!pointInsideBounds({ x: node.x, y: node.y }, rect, 120)) {
+      centerOnPoint({ x: node.x, y: node.y }, size);
+    }
+  }, [centerOnPoint, model.nodeById, selectedPersonId, size, view]);
+
+  const visibleRect = useMemo(() => worldRectFromView(view, size), [size, view]);
+  const visibleNodes = useMemo(
+    () =>
+      model.nodes.filter((node) =>
+        nodeIntersectsBounds(
+          { x: node.x, y: node.y },
+          CANVAS_NODE_WIDTH,
+          CANVAS_NODE_HEIGHT,
+          visibleRect,
+          NODE_OVERSCAN
+        )
+      ),
+    [model.nodes, visibleRect]
+  );
+  const visibleEdges = useMemo(
+    () =>
+      model.renderedParentEdges.filter((edge) =>
+        edgeVisible(edge, visibleRect, EDGE_OVERSCAN)
+      ),
+    [model.renderedParentEdges, visibleRect]
+  );
+
+  const selectedNode = selectedPersonId ? model.nodeById.get(selectedPersonId) : null;
+  const selectedPerson = selectedPersonId ? data.people[selectedPersonId] : null;
+  const focusPerson = selectedPersonId ? data.people[selectedPersonId] : null;
+
+  const handleWheel = (event: WheelEvent<HTMLDivElement>) => {
+    event.preventDefault();
+    const rect = containerRef.current?.getBoundingClientRect();
+    if (!rect) return;
+    zoomAtPoint(
+      { x: event.clientX - rect.left, y: event.clientY - rect.top },
+      event.deltaY > 0 ? 0.9 : 1.1
+    );
+  };
+
+  const handlePointerDown = (event: PointerEvent<HTMLDivElement>) => {
+    if (event.button !== 0) return;
+    event.preventDefault();
+    event.currentTarget.setPointerCapture?.(event.pointerId);
+    setPan({
+      pointerId: event.pointerId,
+      startX: event.clientX,
+      startY: event.clientY,
+      baseX: view.x,
+      baseY: view.y,
+      moved: false
+    });
+  };
+
+  const handlePointerMove = (event: PointerEvent<HTMLDivElement>) => {
+    if (!pan || pan.pointerId !== event.pointerId) return;
+    const dx = event.clientX - pan.startX;
+    const dy = event.clientY - pan.startY;
+    const moved = pan.moved || Math.hypot(dx, dy) > 3;
+    setView((prev) => ({
+      ...prev,
+      x: pan.baseX + dx,
+      y: pan.baseY + dy
+    }));
+    if (moved !== pan.moved) setPan({ ...pan, moved });
+  };
+
+  const handlePointerUp = (event: PointerEvent<HTMLDivElement>) => {
+    if (pan?.pointerId === event.pointerId && pan.moved) {
+      suppressClickRef.current = true;
+    }
+    setPan(null);
+  };
+
+  const handleBackgroundClick = () => {
+    if (suppressClickRef.current) {
+      suppressClickRef.current = false;
+      return;
+    }
+    selectPerson(null);
+    selectEvent(null);
+  };
+
+  const openPicker = (personId: string, relation: Relation) => {
+    setPicker({ personId, relation });
+    setContextMenu(null);
+  };
+
+  const handlePick = (result: PickerResult) => {
+    if (!picker) return;
+    const anchor = data.people[picker.personId];
+    if (!anchor) {
+      setPicker(null);
+      return;
+    }
+
+    if (result.kind === "new") {
+      const response = createRelative(picker.personId, picker.relation, {
+        name: result.name,
+        gender: result.gender
+      });
+      if (!response.ok) {
+        pushToast(response.reason, "error");
+      } else {
+        let message = `Added ${result.name}.`;
+        if (response.autoLinkedParent) {
+          const autoParent = data.people[response.autoLinkedParent];
+          if (autoParent) message += ` ${autoParent.name} auto-linked as second parent.`;
+        }
+        pushToast(message, "success");
+      }
+    } else {
+      const response =
+        picker.relation === "parent"
+          ? linkParent(picker.personId, result.person.id)
+          : picker.relation === "spouse"
+            ? linkSpouse(picker.personId, result.person.id)
+            : linkParent(result.person.id, picker.personId);
+      if (!response.ok) pushToast(response.reason, "error");
+      else pushToast(`Linked ${result.person.name}.`, "success");
+    }
+
+    setPicker(null);
+  };
+
+  const handleAddEvent = (personId: string) => {
+    const eventId = addEvent({
+      type: "custom",
+      customTitle: "New event",
+      people: [personId]
+    });
+    selectPerson(personId);
+    selectEvent(eventId);
+    pushToast("Event added. Edit it in the inspector.", "success");
+  };
+
+  const handleAddFirstPerson = () => {
+    const personId = addPerson({ name: "New person", gender: "U" });
+    selectPerson(personId);
+    selectEvent(null);
+  };
+
+  const handleDeletePerson = (personId: string) => {
+    const person = data.people[personId];
+    if (!person) return;
+    if (window.confirm(`Delete ${person.name || "this person"}?`)) {
+      deletePerson(personId);
+      pushToast("Person deleted.", "info");
+    }
+  };
+
+  const zoomPercent = Math.round(view.zoom * 100);
+  const hasPeople = Object.keys(data.people).length > 0;
+
+  return (
+    <div
+      ref={containerRef}
+      className={`family-canvas ${pan ? "panning" : ""}`}
+      onWheel={handleWheel}
+      onPointerDown={handlePointerDown}
+      onPointerMove={handlePointerMove}
+      onPointerUp={handlePointerUp}
+      onPointerCancel={() => setPan(null)}
+      onPointerLeave={() => setPan(null)}
+      onClick={handleBackgroundClick}
+    >
+      <div className="family-canvas-meta">
+        <strong>{model.nodes.length}</strong> people
+        <span>{visibleNodes.length} visible</span>
+        <span>{zoomPercent}%</span>
+      </div>
+
+      <div
+        className="family-canvas-controls"
+        onPointerDown={(event) => event.stopPropagation()}
+        onClick={(event) => event.stopPropagation()}
+      >
+        <button title="Zoom out" onClick={() => zoomAtPoint({ x: size.width / 2, y: size.height / 2 }, 0.84)}>
+          -
+        </button>
+        <button title="Zoom in" onClick={() => zoomAtPoint({ x: size.width / 2, y: size.height / 2 }, 1.16)}>
+          +
+        </button>
+        <button title="Fit tree" onClick={() => fitToBounds(model.bounds, size, 130)}>
+          Fit
+        </button>
+      </div>
+
+      {focusSet && focusPerson && (
+        <div
+          className="family-focus-pill"
+          onPointerDown={(event) => event.stopPropagation()}
+          onClick={(event) => event.stopPropagation()}
+        >
+          <span>
+            {focusMode === "ancestors" ? "Ancestors" : "Descendants"} of {focusPerson.name}
+          </span>
+          <button onClick={() => setFocusMode("all")}>Show all</button>
+        </div>
+      )}
+
+      {model.nodes.length === 0 ? (
+        <EmptyCanvas
+          hasPeople={hasPeople}
+          onAddFirstPerson={handleAddFirstPerson}
+          onLoadDemo={loadDemo}
+          onShowAll={() => setFocusMode("all")}
+        />
+      ) : (
+        <svg className="family-canvas-stage" aria-label="Family tree canvas">
+          <g transform={`translate(${view.x} ${view.y}) scale(${view.zoom})`}>
+            {model.coupleUnits.map((unit) => (
+              <CoupleBackground key={unit.id} unit={unit} />
+            ))}
+
+            {visibleEdges.map((edge, index) => (
+              <path
+                key={`edge-${index}`}
+                className="family-edge parent"
+                d={parentPath(edge)}
+              />
+            ))}
+
+            {visibleNodes.map((node) => (
+              <FamilyCanvasNodeView
+                key={node.id}
+                node={node}
+                isSelected={node.id === selectedPersonId}
+                isDimmed={!!focusSet && !focusSet.has(node.id)}
+                onClick={(event) => {
+                  event.stopPropagation();
+                  selectPerson(node.id);
+                  selectEvent(null);
+                }}
+                onContextMenu={(event) => {
+                  event.preventDefault();
+                  event.stopPropagation();
+                  selectPerson(node.id);
+                  setContextMenu({ x: event.clientX, y: event.clientY, personId: node.id });
+                }}
+              />
+            ))}
+          </g>
+        </svg>
+      )}
+
+      {selectedPerson && selectedNode && (
+        <FamilyCanvasHud
+          person={selectedPerson}
+          data={data}
+          birthYear={selectedNode.birthYear}
+          deathYear={selectedNode.deathYear}
+          onPickRelation={(relation) => openPicker(selectedPerson.id, relation)}
+          onAddEvent={() => handleAddEvent(selectedPerson.id)}
+          onOpenTimeline={() => setViewMode("timeline")}
+          onSelectPerson={(personId) => {
+            selectPerson(personId);
+            selectEvent(null);
+          }}
+          onSelectEvent={(eventId) => selectEvent(eventId)}
+        />
+      )}
+
+      <FamilyCanvasMiniMap
+        nodes={model.nodes}
+        bounds={model.bounds}
+        selectedPersonId={selectedPersonId}
+        view={view}
+        size={size}
+        onNavigate={(x, y) => {
+          setView((current) => ({
+            ...current,
+            x: size.width / 2 - x * current.zoom,
+            y: size.height / 2 - y * current.zoom
+          }));
+        }}
+      />
+
+      {contextMenu &&
+        (() => {
+          const items: MenuItem[] = [
+            {
+              kind: "action",
+              label: "Child of...",
+              onClick: () => openPicker(contextMenu.personId, "parent")
+            },
+            {
+              kind: "action",
+              label: "Parent of...",
+              onClick: () => openPicker(contextMenu.personId, "child")
+            },
+            {
+              kind: "action",
+              label: "Married with...",
+              onClick: () => openPicker(contextMenu.personId, "spouse")
+            },
+            {
+              kind: "action",
+              label: "Add event",
+              onClick: () => handleAddEvent(contextMenu.personId)
+            },
+            { kind: "separator" },
+            {
+              kind: "action",
+              label: "Delete person",
+              danger: true,
+              onClick: () => handleDeletePerson(contextMenu.personId)
+            }
+          ];
+          return (
+            <ContextMenu
+              x={contextMenu.x}
+              y={contextMenu.y}
+              items={items}
+              onClose={() => setContextMenu(null)}
+            />
+          );
+        })()}
+
+      {picker &&
+        (() => {
+          const anchor = data.people[picker.personId];
+          if (!anchor) return null;
+          return (
+            <PersonPicker
+              title={pickerTitle(anchor.name || "Unnamed", picker.relation)}
+              excludeIds={new Set([picker.personId])}
+              onPick={handlePick}
+              onCancel={() => setPicker(null)}
+            />
+          );
+        })()}
+    </div>
+  );
+}
+
+function EmptyCanvas({
+  hasPeople,
+  onAddFirstPerson,
+  onLoadDemo,
+  onShowAll
+}: {
+  hasPeople: boolean;
+  onAddFirstPerson: () => void;
+  onLoadDemo: () => void;
+  onShowAll: () => void;
+}) {
+  return (
+    <div
+      className="family-canvas-empty"
+      onPointerDown={(event) => event.stopPropagation()}
+      onClick={(event) => event.stopPropagation()}
+    >
+      <div className="family-canvas-empty-tree" aria-hidden="true">
+        <span className="root" />
+        <span className="left" />
+        <span className="right" />
+      </div>
+      <h2>{hasPeople ? "No people in this focus" : "Start the family canvas"}</h2>
+      <p>
+        {hasPeople
+          ? "The current focus has hidden every node."
+          : "Create one person, then connect parents, children, spouses, events, and sources."}
+      </p>
+      <div>
+        {hasPeople ? (
+          <button className="primary" onClick={onShowAll}>Show all</button>
+        ) : (
+          <>
+            <button className="primary" onClick={onAddFirstPerson}>Add first person</button>
+            <button onClick={onLoadDemo}>Load demo</button>
+          </>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function CoupleBackground({ unit }: { unit: { centerX: number; y: number; width: number } }) {
+  const padX = 10;
+  const padY = 10;
+  return (
+    <rect
+      x={unit.centerX - unit.width / 2 - padX}
+      y={unit.y - CANVAS_NODE_HEIGHT / 2 - padY}
+      width={unit.width + padX * 2}
+      height={CANVAS_NODE_HEIGHT + padY * 2}
+      rx={18}
+      className="family-couple-bg"
+    />
+  );
+}
+
+function parentPath(edge: RenderedParentEdge): string {
+  const parent =
+    edge.kind === "single"
+      ? edge.parent
+      : {
+          ...edge.parentA,
+          x: (edge.parentA.x + edge.parentB.x) / 2
+        };
+  const child = edge.child;
+  const x1 = parent.x;
+  const y1 = parent.y + CANVAS_NODE_HEIGHT / 2;
+  const x2 = child.x;
+  const y2 = child.y - CANVAS_NODE_HEIGHT / 2;
+  const midY = (y1 + y2) / 2;
+
+  if (Math.abs(x1 - x2) < 1) return `M ${x1} ${y1} L ${x2} ${y2}`;
+
+  const dir = x2 > x1 ? 1 : -1;
+  const radius = Math.min(18, Math.abs(y2 - y1) / 4, Math.abs(x2 - x1) / 2);
+  return [
+    `M ${x1} ${y1}`,
+    `L ${x1} ${midY - radius}`,
+    `Q ${x1} ${midY} ${x1 + dir * radius} ${midY}`,
+    `L ${x2 - dir * radius} ${midY}`,
+    `Q ${x2} ${midY} ${x2} ${midY + radius}`,
+    `L ${x2} ${y2}`
+  ].join(" ");
+}
+
+function edgeVisible(edge: RenderedParentEdge, rect: { minX: number; maxX: number; minY: number; maxY: number }, overscan: number) {
+  const nodes: FamilyCanvasNode[] =
+    edge.kind === "single"
+      ? [edge.parent, edge.child]
+      : [edge.parentA, edge.parentB, edge.child];
+  return nodes.some((node) =>
+    nodeIntersectsBounds(
+      { x: node.x, y: node.y },
+      CANVAS_NODE_WIDTH,
+      CANVAS_NODE_HEIGHT,
+      rect,
+      overscan
+    )
+  );
+}
+
+function pickerTitle(anchorName: string, relation: Relation): string {
+  if (relation === "parent") return `${anchorName} is child of...`;
+  if (relation === "child") return `${anchorName} is parent of...`;
+  return `${anchorName} is married with...`;
+}

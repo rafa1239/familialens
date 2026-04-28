@@ -322,7 +322,7 @@ export const useStore = create<Store>()((set, get) => {
     hydrated: false,
     selectedPersonId: null,
     selectedEventId: null,
-    viewMode: "timeline",
+    viewMode: "tree",
     focusMode: "all",
     toasts: [],
     past: [],
@@ -351,16 +351,14 @@ export const useStore = create<Store>()((set, get) => {
         if (snapshot) {
           set({ data: snapshot, hydrated: true });
         } else {
-          // First visit — auto-load the demo family so the portfolio
-          // experience is instant. Land on Atlas with a "peak" year
-          // (~1980: 7 people alive, spread across 5 cities), trails
-          // visible, and Sofia pre-selected (the full-circle story —
-          // she returned to Lisbon where her grandfather was born).
+          // First visit: auto-load the demo family so the portfolio
+          // experience is instant. V8 lands on the family canvas first;
+          // Timeline, Map, and Atlas stay one click away.
           const demo = createDemoData();
           set({
             data: demo,
             hydrated: true,
-            viewMode: "atlas",
+            viewMode: "tree",
             selectedPersonId: "person_demo_sofia"
           });
           saveSnapshot(demo);
@@ -377,7 +375,7 @@ export const useStore = create<Store>()((set, get) => {
     loadDemo() {
       const demo = createDemoData();
       commit(demo, { selectedPersonId: null, selectedEventId: null });
-      set({ viewMode: "atlas" });
+      set({ viewMode: "tree" });
     },
 
     isDemo() {
