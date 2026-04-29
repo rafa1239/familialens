@@ -21,6 +21,7 @@ import {
   kinshipRoleFor,
   type FamilyCanvasNode,
   type FamilyCoupleUnit,
+  type FreeCanvasPositions,
   type KinshipRole,
   type RenderedParentEdge
 } from "./canvasModel";
@@ -32,7 +33,8 @@ import {
   pointInsideBounds,
   useCanvasViewport,
   worldRectFromView,
-  type CanvasSize
+  type CanvasSize,
+  type CanvasView
 } from "./useCanvasViewport";
 import { useFreeCanvasPositions } from "./useFreeCanvasPositions";
 
@@ -82,15 +84,27 @@ export function FamilyCanvas() {
     releasePersonPosition,
     clearPositions
   } = useFreeCanvasPositions(data);
-  const hasFreeLayout = hasFreeCanvasPositions(freePositions);
+  const [draftPositions, setDraftPositions] = useState<FreeCanvasPositions>({});
+  const displayPositions = useMemo(
+    () => ({ ...freePositions, ...draftPositions }),
+    [draftPositions, freePositions]
+  );
+  const hasFreeLayout = hasFreeCanvasPositions(displayPositions);
   const layoutData = useMemo(() => filterDataForFocus(data, focusSet), [data, focusSet]);
   const layout = useMemo(() => computeTreeLayout(layoutData), [layoutData]);
   const model = useMemo(
-    () => buildCanvasModel(data, layout, freePositions),
-    [data, freePositions, layout]
+    () => buildCanvasModel(data, layout, displayPositions),
+    [data, displayPositions, layout]
   );
 
   const containerRef = useRef<HTMLDivElement>(null);
+  const rafRef = useRef<number | null>(null);
+  const pendingViewRef = useRef<CanvasView | null>(null);
+  const pendingDraftRef = useRef<{
+    personId: string;
+    x: number;
+    y: number;
+  } | null>(null);
   const suppressClickRef = useRef(false);
   const [size, setSize] = useState<CanvasSize>({ width: 0, height: 0 });
   const [pan, setPan] = useState<PanState | null>(null);
@@ -102,6 +116,34 @@ export function FamilyCanvas() {
   } | null>(null);
   const [picker, setPicker] = useState<{ personId: string; relation: Relation } | null>(null);
   const { view, setView, zoomAtPoint, fitToBounds, centerOnPoint } = useCanvasViewport();
+
+  const scheduleInteractionFrame = () => {
+    if (rafRef.current != null) return;
+    rafRef.current = window.requestAnimationFrame(() => {
+      rafRef.current = null;
+      const nextView = pendingViewRef.current;
+      const nextDraft = pendingDraftRef.current;
+      pendingViewRef.current = null;
+      pendingDraftRef.current = null;
+
+      if (nextView) setView(nextView);
+      if (nextDraft) {
+        setDraftPositions({
+          [nextDraft.personId]: {
+            x: nextDraft.x,
+            y: nextDraft.y,
+            pinned: true
+          }
+        });
+      }
+    });
+  };
+
+  useEffect(() => {
+    return () => {
+      if (rafRef.current != null) window.cancelAnimationFrame(rafRef.current);
+    };
+  }, []);
 
   useEffect(() => {
     const element = containerRef.current;
@@ -201,7 +243,12 @@ export function FamilyCanvas() {
       const dx = (event.clientX - nodeDrag.startX) / view.zoom;
       const dy = (event.clientY - nodeDrag.startY) / view.zoom;
       const moved = nodeDrag.moved || Math.hypot(event.clientX - nodeDrag.startX, event.clientY - nodeDrag.startY) > 3;
-      setPersonPosition(nodeDrag.personId, nodeDrag.baseX + dx, nodeDrag.baseY + dy);
+      pendingDraftRef.current = {
+        personId: nodeDrag.personId,
+        x: nodeDrag.baseX + dx,
+        y: nodeDrag.baseY + dy
+      };
+      scheduleInteractionFrame();
       if (moved !== nodeDrag.moved) setNodeDrag({ ...nodeDrag, moved });
       return;
     }
@@ -210,24 +257,43 @@ export function FamilyCanvas() {
     const dx = event.clientX - pan.startX;
     const dy = event.clientY - pan.startY;
     const moved = pan.moved || Math.hypot(dx, dy) > 3;
-    setView((prev) => ({
-      ...prev,
+    pendingViewRef.current = {
+      ...view,
       x: pan.baseX + dx,
       y: pan.baseY + dy
-    }));
+    };
+    scheduleInteractionFrame();
     if (moved !== pan.moved) setPan({ ...pan, moved });
   };
 
   const handlePointerUp = (event: PointerEvent<HTMLDivElement>) => {
     if (nodeDrag?.pointerId === event.pointerId) {
+      const finalDraft =
+        pendingDraftRef.current?.personId === nodeDrag.personId
+          ? pendingDraftRef.current
+          : draftPositions[nodeDrag.personId];
+      pendingDraftRef.current = null;
+      setDraftPositions({});
+      if (finalDraft) setPersonPosition(nodeDrag.personId, finalDraft.x, finalDraft.y);
       if (nodeDrag.moved) suppressClickRef.current = true;
       setNodeDrag(null);
       return;
     }
 
+    if (pan?.pointerId === event.pointerId && pendingViewRef.current) {
+      setView(pendingViewRef.current);
+      pendingViewRef.current = null;
+    }
     if (pan?.pointerId === event.pointerId && pan.moved) {
       suppressClickRef.current = true;
     }
+    setPan(null);
+  };
+
+  const handlePointerCancel = () => {
+    pendingDraftRef.current = null;
+    setDraftPositions({});
+    setNodeDrag(null);
     setPan(null);
   };
 
@@ -341,8 +407,10 @@ export function FamilyCanvas() {
       onPointerDown={handlePointerDown}
       onPointerMove={handlePointerMove}
       onPointerUp={handlePointerUp}
-      onPointerCancel={() => setPan(null)}
-      onPointerLeave={() => setPan(null)}
+      onPointerCancel={handlePointerCancel}
+      onPointerLeave={() => {
+        if (!nodeDrag) setPan(null);
+      }}
       onClick={handleBackgroundClick}
     >
       <div className="family-canvas-meta">
@@ -432,7 +500,7 @@ export function FamilyCanvas() {
                 node={node}
                 isSelected={node.id === selectedPersonId}
                 isDimmed={!!focusSet && !focusSet.has(node.id)}
-                isPinned={!!freePositions[node.id]}
+                isPinned={!!displayPositions[node.id]}
                 kinshipRole={selectedPersonId ? kinshipByNode.get(node.id) ?? "other" : null}
                 onPickRelation={
                   node.id === selectedPersonId

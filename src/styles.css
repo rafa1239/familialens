@@ -775,6 +775,23 @@ textarea { resize: vertical; min-height: 56px; font-family: inherit; }
 }
 .family-canvas.panning,
 .family-canvas.dragging-node { cursor: grabbing; }
+.family-canvas.panning .family-couple-bg,
+.family-canvas.panning .family-edge.parent,
+.family-canvas.panning .family-node-card,
+.family-canvas.panning .family-node-pin circle,
+.family-canvas.panning .family-node-port rect,
+.family-canvas.dragging-node .family-couple-bg,
+.family-canvas.dragging-node .family-edge.parent,
+.family-canvas.dragging-node .family-node-card,
+.family-canvas.dragging-node .family-node-pin circle,
+.family-canvas.dragging-node .family-node-port rect {
+  filter: none;
+  transition: none;
+}
+.family-canvas.panning .family-node,
+.family-canvas.dragging-node .family-node {
+  transition: none;
+}
 
 .family-canvas-stage {
   position: absolute;
@@ -907,7 +924,6 @@ textarea { resize: vertical; min-height: 56px; font-family: inherit; }
   fill: rgba(36, 127, 117, 0.08);
   stroke: rgba(36, 127, 117, 0.22);
   stroke-width: 1.4;
-  filter: drop-shadow(0 5px 14px rgba(36, 127, 117, 0.08));
   transition: opacity 140ms ease, stroke 140ms ease, fill 140ms ease;
 }
 .family-couple-bg.kin-active,
@@ -927,7 +943,6 @@ textarea { resize: vertical; min-height: 56px; font-family: inherit; }
 .family-edge.parent {
   stroke: rgba(65, 78, 70, 0.34);
   stroke-width: 2.4px;
-  filter: drop-shadow(0 1px 2px rgba(40, 28, 12, 0.07));
   transition: opacity 140ms ease, stroke 140ms ease, stroke-width 140ms ease;
 }
 .family-edge.parent.kin-active {
@@ -955,17 +970,17 @@ textarea { resize: vertical; min-height: 56px; font-family: inherit; }
   fill: rgba(255, 255, 255, 0.96);
   stroke: rgba(84, 68, 45, 0.2);
   stroke-width: 1.2;
-  filter: drop-shadow(0 2px 5px rgba(40, 28, 12, 0.12)) drop-shadow(0 10px 24px rgba(40, 28, 12, 0.11));
+  filter: drop-shadow(0 2px 7px rgba(40, 28, 12, 0.11));
   transition: stroke 150ms ease, filter 150ms ease;
 }
 .family-node:hover .family-node-card {
   stroke: rgba(36, 127, 117, 0.52);
-  filter: drop-shadow(0 4px 9px rgba(40, 28, 12, 0.14)) drop-shadow(0 16px 32px rgba(40, 28, 12, 0.14));
+  filter: drop-shadow(0 4px 10px rgba(40, 28, 12, 0.14));
 }
 .family-node.selected .family-node-card {
   stroke: var(--accent);
   stroke-width: 2.5;
-  filter: drop-shadow(0 4px 12px rgba(184, 113, 24, 0.24)) drop-shadow(0 14px 36px rgba(40, 28, 12, 0.16));
+  filter: drop-shadow(0 5px 12px rgba(184, 113, 24, 0.2));
 }
 .family-node.pinned .family-node-card {
   stroke-dasharray: 7 4;
