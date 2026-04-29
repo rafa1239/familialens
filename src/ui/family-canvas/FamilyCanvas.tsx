@@ -21,6 +21,7 @@ import {
   kinshipRoleFor,
   type FamilyCanvasNode,
   type FamilyCoupleUnit,
+  type FreeCanvasPositions,
   type KinshipRole,
   type RenderedParentEdge
 } from "./canvasModel";
@@ -81,24 +82,32 @@ export function FamilyCanvas() {
     releasePersonPosition,
     clearPositions
   } = useFreeCanvasPositions(data);
-  const hasFreeLayout = hasFreeCanvasPositions(freePositions);
+  const [draftPositions, setDraftPositions] = useState<FreeCanvasPositions>({});
+  const displayPositions = useMemo(
+    () => ({ ...freePositions, ...draftPositions }),
+    [draftPositions, freePositions]
+  );
+  const hasFreeLayout = hasFreeCanvasPositions(displayPositions);
   const layoutData = useMemo(() => filterDataForFocus(data, focusSet), [data, focusSet]);
   const layout = useMemo(() => computeTreeLayout(layoutData), [layoutData]);
   const model = useMemo(
-    () => buildCanvasModel(data, layout, freePositions),
-    [data, freePositions, layout]
+    () => buildCanvasModel(data, layout, displayPositions),
+    [data, displayPositions, layout]
   );
 
   const containerRef = useRef<HTMLDivElement>(null);
-  const stageRef = useRef<SVGGElement>(null);
   const rafRef = useRef<number | null>(null);
   const pendingViewRef = useRef<CanvasView | null>(null);
-  const pendingNodePositionRef = useRef<{
+  const pendingDraftRef = useRef<{
     personId: string;
     x: number;
     y: number;
   } | null>(null);
-  const draggedNodeElementRef = useRef<SVGGElement | null>(null);
+  const lastDraftRef = useRef<{
+    personId: string;
+    x: number;
+    y: number;
+  } | null>(null);
   const panMovedRef = useRef(false);
   const nodeDragMovedRef = useRef(false);
   const suppressClickRef = useRef(false);
@@ -138,20 +147,20 @@ export function FamilyCanvas() {
     rafRef.current = window.requestAnimationFrame(() => {
       rafRef.current = null;
       const nextView = pendingViewRef.current;
-      const nextPosition = pendingNodePositionRef.current;
+      const nextDraft = pendingDraftRef.current;
       pendingViewRef.current = null;
+      pendingDraftRef.current = null;
 
-      if (nextView && stageRef.current) {
-        stageRef.current.setAttribute(
-          "transform",
-          `translate(${nextView.x} ${nextView.y}) scale(${nextView.zoom})`
-        );
-      }
-      if (nextPosition && draggedNodeElementRef.current) {
-        draggedNodeElementRef.current.setAttribute(
-          "transform",
-          nodeTransform(nextPosition.x, nextPosition.y)
-        );
+      if (nextView) setView(nextView);
+      if (nextDraft) {
+        setDraftPositions((current) => ({
+          ...current,
+          [nextDraft.personId]: {
+            x: nextDraft.x,
+            y: nextDraft.y,
+            pinned: true
+          }
+        }));
       }
     });
   };
@@ -161,15 +170,6 @@ export function FamilyCanvas() {
       if (rafRef.current != null) window.cancelAnimationFrame(rafRef.current);
     };
   }, []);
-
-  useEffect(() => {
-    if (!pan) {
-      stageRef.current?.setAttribute(
-        "transform",
-        `translate(${view.x} ${view.y}) scale(${view.zoom})`
-      );
-    }
-  }, [pan, view]);
 
   useEffect(() => {
     const element = containerRef.current;
@@ -271,11 +271,13 @@ export function FamilyCanvas() {
       if (Math.hypot(event.clientX - nodeDrag.startX, event.clientY - nodeDrag.startY) > 3) {
         nodeDragMovedRef.current = true;
       }
-      pendingNodePositionRef.current = {
+      const nextDraft = {
         personId: nodeDrag.personId,
         x: nodeDrag.baseX + dx,
         y: nodeDrag.baseY + dy
       };
+      pendingDraftRef.current = nextDraft;
+      lastDraftRef.current = nextDraft;
       scheduleInteractionFrame();
       return;
     }
@@ -295,11 +297,14 @@ export function FamilyCanvas() {
   const handlePointerUp = (event: PointerEvent<HTMLDivElement>) => {
     if (nodeDrag?.pointerId === event.pointerId) {
       const finalPosition =
-        pendingNodePositionRef.current?.personId === nodeDrag.personId
-          ? pendingNodePositionRef.current
+        pendingDraftRef.current?.personId === nodeDrag.personId
+          ? pendingDraftRef.current
+          : lastDraftRef.current?.personId === nodeDrag.personId
+            ? lastDraftRef.current
           : null;
-      pendingNodePositionRef.current = null;
-      draggedNodeElementRef.current = null;
+      pendingDraftRef.current = null;
+      lastDraftRef.current = null;
+      setDraftPositions({});
       if (finalPosition) setPersonPosition(nodeDrag.personId, finalPosition.x, finalPosition.y);
       if (nodeDragMovedRef.current) suppressClickRef.current = true;
       nodeDragMovedRef.current = false;
@@ -319,8 +324,9 @@ export function FamilyCanvas() {
   };
 
   const handlePointerCancel = () => {
-    pendingNodePositionRef.current = null;
-    draggedNodeElementRef.current = null;
+    pendingDraftRef.current = null;
+    lastDraftRef.current = null;
+    setDraftPositions({});
     panMovedRef.current = false;
     nodeDragMovedRef.current = false;
     setNodeDrag(null);
@@ -335,7 +341,6 @@ export function FamilyCanvas() {
     event.preventDefault();
     event.stopPropagation();
     event.currentTarget.setPointerCapture?.(event.pointerId);
-    draggedNodeElementRef.current = event.currentTarget;
     selectPerson(node.id);
     selectEvent(null);
     setContextMenu(null);
@@ -439,9 +444,6 @@ export function FamilyCanvas() {
       onPointerMove={handlePointerMove}
       onPointerUp={handlePointerUp}
       onPointerCancel={handlePointerCancel}
-      onPointerLeave={() => {
-        if (!nodeDrag) setPan(null);
-      }}
       onClick={handleBackgroundClick}
     >
       <div className="family-canvas-meta">
@@ -514,7 +516,7 @@ export function FamilyCanvas() {
         />
       ) : (
         <svg className="family-canvas-stage" aria-label="Family tree canvas">
-          <g ref={stageRef} transform={`translate(${view.x} ${view.y}) scale(${view.zoom})`}>
+          <g transform={`translate(${view.x} ${view.y}) scale(${view.zoom})`}>
             {model.coupleUnits.map((unit) => (
               <CoupleBackground
                 key={unit.id}
@@ -727,10 +729,6 @@ function CoupleBackground({
       className={`family-couple-bg ${kinshipState}`}
     />
   );
-}
-
-function nodeTransform(x: number, y: number): string {
-  return `translate(${x - CANVAS_NODE_WIDTH / 2} ${y - CANVAS_NODE_HEIGHT / 2})`;
 }
 
 function parentPath(edge: RenderedParentEdge): string {

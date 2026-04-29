@@ -793,7 +793,7 @@ textarea { resize: vertical; min-height: 56px; font-family: inherit; }
   transition: none;
 }
 .family-canvas.dragging-node .family-edge.parent {
-  opacity: 0.14;
+  opacity: 0.3;
 }
 
 .family-canvas-stage {
