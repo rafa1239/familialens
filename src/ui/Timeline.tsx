@@ -606,6 +606,9 @@ export function Timeline() {
             return (
               <PersonPicker
                 title={title}
+                subtitle={pickerSubtitle(anchor.name || "Unnamed", picker.relation)}
+                anchorPersonId={picker.personId}
+                relation={picker.relation}
                 excludeIds={new Set([picker.personId])}
                 onPick={handlePick}
                 onCancel={() => setPicker(null)}
@@ -618,6 +621,15 @@ export function Timeline() {
 }
 
 // ─── Scrubber bar ───────────────────────────────────
+function pickerSubtitle(
+  anchorName: string,
+  relation: "parent" | "spouse" | "child"
+): string {
+  if (relation === "parent") return `Choose or create a parent for ${anchorName}.`;
+  if (relation === "child") return `Choose or create a child for ${anchorName}.`;
+  return `Choose or create a spouse for ${anchorName}.`;
+}
+
 function ScrubberBar({
   bounds,
   year,

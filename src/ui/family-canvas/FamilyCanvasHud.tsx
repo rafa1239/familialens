@@ -59,6 +59,25 @@ export function FamilyCanvasHud({
         </button>
       </header>
 
+      <div className="family-hud-statrail" aria-label="Selected person summary">
+        <button onClick={() => onPickRelation("parent")}>
+          <strong>{parents.length}</strong>
+          <span>parents</span>
+        </button>
+        <button onClick={() => onPickRelation("child")}>
+          <strong>{children.length}</strong>
+          <span>children</span>
+        </button>
+        <button onClick={() => onPickRelation("spouse")}>
+          <strong>{spouses.length}</strong>
+          <span>spouses</span>
+        </button>
+        <button onClick={onOpenTimeline}>
+          <strong>{events.length}</strong>
+          <span>events</span>
+        </button>
+      </div>
+
       <div className="family-hud-actions">
         <button onClick={() => onPickRelation("parent")}>Child of...</button>
         <button onClick={() => onPickRelation("child")}>Parent of...</button>
@@ -96,6 +115,7 @@ export function FamilyCanvasHud({
           label="Child of"
           people={parents}
           empty="No parents linked"
+          addLabel="Add parent"
           onSelectPerson={onSelectPerson}
           onAdd={() => onPickRelation("parent")}
         />
@@ -103,6 +123,7 @@ export function FamilyCanvasHud({
           label="Parent of"
           people={children}
           empty="No children linked"
+          addLabel="Add child"
           onSelectPerson={onSelectPerson}
           onAdd={() => onPickRelation("child")}
         />
@@ -110,6 +131,7 @@ export function FamilyCanvasHud({
           label="Married with"
           people={spouses}
           empty="No spouse linked"
+          addLabel="Add spouse"
           onSelectPerson={onSelectPerson}
           onAdd={() => onPickRelation("spouse")}
         />
@@ -143,7 +165,7 @@ export function FamilyCanvasHud({
                   />
                   <span className="family-event-main">
                     <strong>{eventTitle(event)}</strong>
-                    <small>{event.date?.display ?? "Date unknown"}</small>
+                    <small>{eventMetaLine(event)}</small>
                   </span>
                 </button>
               ))}
@@ -212,12 +234,14 @@ function RelationRow({
   label,
   people,
   empty,
+  addLabel,
   onSelectPerson,
   onAdd
 }: {
   label: string;
   people: Person[];
   empty: string;
+  addLabel?: string;
   onSelectPerson: (personId: string) => void;
   onAdd?: () => void;
 }) {
@@ -228,7 +252,14 @@ function RelationRow({
         {onAdd && <button className="ghost small" onClick={onAdd}>Add</button>}
       </div>
       {people.length === 0 ? (
-        <p>{empty}</p>
+        onAdd && addLabel ? (
+          <button className="family-relation-empty-action" onClick={onAdd}>
+            <span>{empty}</span>
+            <strong>{addLabel}</strong>
+          </button>
+        ) : (
+          <p>{empty}</p>
+        )
       ) : (
         <div className="family-relation-chips">
           {people.map((person) => (
@@ -245,6 +276,15 @@ function RelationRow({
 function eventTitle(event: FamilyEvent): string {
   if (event.type === "custom" && event.customTitle) return event.customTitle;
   return EVENT_META[event.type].label;
+}
+
+function eventMetaLine(event: FamilyEvent): string {
+  const parts = [event.date?.display ?? "Date unknown"];
+  if (event.place?.name) parts.push(event.place.name);
+  if (event.sources.length > 0) {
+    parts.push(`${event.sources.length} source${event.sources.length === 1 ? "" : "s"}`);
+  }
+  return parts.join(" - ");
 }
 
 function formatTimelineYear(year: number): string {

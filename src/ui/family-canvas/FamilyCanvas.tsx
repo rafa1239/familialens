@@ -582,7 +582,10 @@ export function FamilyCanvas() {
             selectPerson(personId);
             selectEvent(null);
           }}
-          onSelectEvent={(eventId) => selectEvent(eventId)}
+          onSelectEvent={(eventId) => {
+            selectEvent(eventId);
+            setViewMode("timeline");
+          }}
         />
       )}
 
@@ -658,6 +661,9 @@ export function FamilyCanvas() {
           return (
             <PersonPicker
               title={pickerTitle(anchor.name || "Unnamed", picker.relation)}
+              subtitle={pickerSubtitle(anchor.name || "Unnamed", picker.relation)}
+              anchorPersonId={picker.personId}
+              relation={picker.relation}
               excludeIds={new Set([picker.personId])}
               onPick={handlePick}
               onCancel={() => setPicker(null)}
@@ -826,4 +832,10 @@ function pickerTitle(anchorName: string, relation: Relation): string {
   if (relation === "parent") return `${anchorName} is child of...`;
   if (relation === "child") return `${anchorName} is parent of...`;
   return `${anchorName} is married with...`;
+}
+
+function pickerSubtitle(anchorName: string, relation: Relation): string {
+  if (relation === "parent") return `Choose or create a parent for ${anchorName}.`;
+  if (relation === "child") return `Choose or create a child for ${anchorName}.`;
+  return `Choose or create a spouse for ${anchorName}.`;
 }
