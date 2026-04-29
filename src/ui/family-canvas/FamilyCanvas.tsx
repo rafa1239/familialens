@@ -21,7 +21,6 @@ import {
   kinshipRoleFor,
   type FamilyCanvasNode,
   type FamilyCoupleUnit,
-  type FreeCanvasPositions,
   type KinshipRole,
   type RenderedParentEdge
 } from "./canvasModel";
@@ -45,7 +44,6 @@ type PanState = {
   startY: number;
   baseX: number;
   baseY: number;
-  moved: boolean;
 };
 type NodeDragState = {
   pointerId: number;
@@ -54,7 +52,6 @@ type NodeDragState = {
   startY: number;
   baseX: number;
   baseY: number;
-  moved: boolean;
 };
 
 const EDGE_OVERSCAN = 360;
@@ -84,31 +81,31 @@ export function FamilyCanvas() {
     releasePersonPosition,
     clearPositions
   } = useFreeCanvasPositions(data);
-  const [draftPositions, setDraftPositions] = useState<FreeCanvasPositions>({});
-  const displayPositions = useMemo(
-    () => ({ ...freePositions, ...draftPositions }),
-    [draftPositions, freePositions]
-  );
-  const hasFreeLayout = hasFreeCanvasPositions(displayPositions);
+  const hasFreeLayout = hasFreeCanvasPositions(freePositions);
   const layoutData = useMemo(() => filterDataForFocus(data, focusSet), [data, focusSet]);
   const layout = useMemo(() => computeTreeLayout(layoutData), [layoutData]);
   const model = useMemo(
-    () => buildCanvasModel(data, layout, displayPositions),
-    [data, displayPositions, layout]
+    () => buildCanvasModel(data, layout, freePositions),
+    [data, freePositions, layout]
   );
 
   const containerRef = useRef<HTMLDivElement>(null);
+  const stageRef = useRef<SVGGElement>(null);
   const rafRef = useRef<number | null>(null);
   const pendingViewRef = useRef<CanvasView | null>(null);
-  const pendingDraftRef = useRef<{
+  const pendingNodePositionRef = useRef<{
     personId: string;
     x: number;
     y: number;
   } | null>(null);
+  const draggedNodeElementRef = useRef<SVGGElement | null>(null);
+  const panMovedRef = useRef(false);
+  const nodeDragMovedRef = useRef(false);
   const suppressClickRef = useRef(false);
   const [size, setSize] = useState<CanvasSize>({ width: 0, height: 0 });
   const [pan, setPan] = useState<PanState | null>(null);
   const [nodeDrag, setNodeDrag] = useState<NodeDragState | null>(null);
+  const [frameRate, setFrameRate] = useState<number | null>(null);
   const [contextMenu, setContextMenu] = useState<{
     x: number;
     y: number;
@@ -117,24 +114,44 @@ export function FamilyCanvas() {
   const [picker, setPicker] = useState<{ personId: string; relation: Relation } | null>(null);
   const { view, setView, zoomAtPoint, fitToBounds, centerOnPoint } = useCanvasViewport();
 
+  useEffect(() => {
+    if (!shouldShowPerfMeter()) return;
+    let frame = 0;
+    let raf = 0;
+    let last = performance.now();
+    const tick = (now: number) => {
+      frame += 1;
+      const elapsed = now - last;
+      if (elapsed >= 500) {
+        setFrameRate(Math.round((frame * 1000) / elapsed));
+        frame = 0;
+        last = now;
+      }
+      raf = window.requestAnimationFrame(tick);
+    };
+    raf = window.requestAnimationFrame(tick);
+    return () => window.cancelAnimationFrame(raf);
+  }, []);
+
   const scheduleInteractionFrame = () => {
     if (rafRef.current != null) return;
     rafRef.current = window.requestAnimationFrame(() => {
       rafRef.current = null;
       const nextView = pendingViewRef.current;
-      const nextDraft = pendingDraftRef.current;
+      const nextPosition = pendingNodePositionRef.current;
       pendingViewRef.current = null;
-      pendingDraftRef.current = null;
 
-      if (nextView) setView(nextView);
-      if (nextDraft) {
-        setDraftPositions({
-          [nextDraft.personId]: {
-            x: nextDraft.x,
-            y: nextDraft.y,
-            pinned: true
-          }
-        });
+      if (nextView && stageRef.current) {
+        stageRef.current.setAttribute(
+          "transform",
+          `translate(${nextView.x} ${nextView.y}) scale(${nextView.zoom})`
+        );
+      }
+      if (nextPosition && draggedNodeElementRef.current) {
+        draggedNodeElementRef.current.setAttribute(
+          "transform",
+          nodeTransform(nextPosition.x, nextPosition.y)
+        );
       }
     });
   };
@@ -144,6 +161,15 @@ export function FamilyCanvas() {
       if (rafRef.current != null) window.cancelAnimationFrame(rafRef.current);
     };
   }, []);
+
+  useEffect(() => {
+    if (!pan) {
+      stageRef.current?.setAttribute(
+        "transform",
+        `translate(${view.x} ${view.y}) scale(${view.zoom})`
+      );
+    }
+  }, [pan, view]);
 
   useEffect(() => {
     const element = containerRef.current;
@@ -232,9 +258,9 @@ export function FamilyCanvas() {
       startX: event.clientX,
       startY: event.clientY,
       baseX: view.x,
-      baseY: view.y,
-      moved: false
+      baseY: view.y
     });
+    panMovedRef.current = false;
   };
 
   const handlePointerMove = (event: PointerEvent<HTMLDivElement>) => {
@@ -242,40 +268,41 @@ export function FamilyCanvas() {
       event.preventDefault();
       const dx = (event.clientX - nodeDrag.startX) / view.zoom;
       const dy = (event.clientY - nodeDrag.startY) / view.zoom;
-      const moved = nodeDrag.moved || Math.hypot(event.clientX - nodeDrag.startX, event.clientY - nodeDrag.startY) > 3;
-      pendingDraftRef.current = {
+      if (Math.hypot(event.clientX - nodeDrag.startX, event.clientY - nodeDrag.startY) > 3) {
+        nodeDragMovedRef.current = true;
+      }
+      pendingNodePositionRef.current = {
         personId: nodeDrag.personId,
         x: nodeDrag.baseX + dx,
         y: nodeDrag.baseY + dy
       };
       scheduleInteractionFrame();
-      if (moved !== nodeDrag.moved) setNodeDrag({ ...nodeDrag, moved });
       return;
     }
 
     if (!pan || pan.pointerId !== event.pointerId) return;
     const dx = event.clientX - pan.startX;
     const dy = event.clientY - pan.startY;
-    const moved = pan.moved || Math.hypot(dx, dy) > 3;
+    if (Math.hypot(dx, dy) > 3) panMovedRef.current = true;
     pendingViewRef.current = {
       ...view,
       x: pan.baseX + dx,
       y: pan.baseY + dy
     };
     scheduleInteractionFrame();
-    if (moved !== pan.moved) setPan({ ...pan, moved });
   };
 
   const handlePointerUp = (event: PointerEvent<HTMLDivElement>) => {
     if (nodeDrag?.pointerId === event.pointerId) {
-      const finalDraft =
-        pendingDraftRef.current?.personId === nodeDrag.personId
-          ? pendingDraftRef.current
-          : draftPositions[nodeDrag.personId];
-      pendingDraftRef.current = null;
-      setDraftPositions({});
-      if (finalDraft) setPersonPosition(nodeDrag.personId, finalDraft.x, finalDraft.y);
-      if (nodeDrag.moved) suppressClickRef.current = true;
+      const finalPosition =
+        pendingNodePositionRef.current?.personId === nodeDrag.personId
+          ? pendingNodePositionRef.current
+          : null;
+      pendingNodePositionRef.current = null;
+      draggedNodeElementRef.current = null;
+      if (finalPosition) setPersonPosition(nodeDrag.personId, finalPosition.x, finalPosition.y);
+      if (nodeDragMovedRef.current) suppressClickRef.current = true;
+      nodeDragMovedRef.current = false;
       setNodeDrag(null);
       return;
     }
@@ -284,15 +311,18 @@ export function FamilyCanvas() {
       setView(pendingViewRef.current);
       pendingViewRef.current = null;
     }
-    if (pan?.pointerId === event.pointerId && pan.moved) {
+    if (pan?.pointerId === event.pointerId && panMovedRef.current) {
       suppressClickRef.current = true;
     }
+    panMovedRef.current = false;
     setPan(null);
   };
 
   const handlePointerCancel = () => {
-    pendingDraftRef.current = null;
-    setDraftPositions({});
+    pendingNodePositionRef.current = null;
+    draggedNodeElementRef.current = null;
+    panMovedRef.current = false;
+    nodeDragMovedRef.current = false;
     setNodeDrag(null);
     setPan(null);
   };
@@ -305,6 +335,7 @@ export function FamilyCanvas() {
     event.preventDefault();
     event.stopPropagation();
     event.currentTarget.setPointerCapture?.(event.pointerId);
+    draggedNodeElementRef.current = event.currentTarget;
     selectPerson(node.id);
     selectEvent(null);
     setContextMenu(null);
@@ -314,9 +345,9 @@ export function FamilyCanvas() {
       startX: event.clientX,
       startY: event.clientY,
       baseX: node.x,
-      baseY: node.y,
-      moved: false
+      baseY: node.y
     });
+    nodeDragMovedRef.current = false;
   };
 
   const handleBackgroundClick = () => {
@@ -419,6 +450,12 @@ export function FamilyCanvas() {
         <span>{zoomPercent}%</span>
       </div>
 
+      {frameRate != null && (
+        <div className="family-perf-meter">
+          {frameRate} fps
+        </div>
+      )}
+
       {selectedPerson && selectedInsight && (
         <div className="family-insight-strip">
           <strong>{selectedPerson.name || "Unnamed"}</strong>
@@ -477,7 +514,7 @@ export function FamilyCanvas() {
         />
       ) : (
         <svg className="family-canvas-stage" aria-label="Family tree canvas">
-          <g transform={`translate(${view.x} ${view.y}) scale(${view.zoom})`}>
+          <g ref={stageRef} transform={`translate(${view.x} ${view.y}) scale(${view.zoom})`}>
             {model.coupleUnits.map((unit) => (
               <CoupleBackground
                 key={unit.id}
@@ -499,8 +536,9 @@ export function FamilyCanvas() {
                 key={node.id}
                 node={node}
                 isSelected={node.id === selectedPersonId}
+                isDragging={node.id === nodeDrag?.personId}
                 isDimmed={!!focusSet && !focusSet.has(node.id)}
-                isPinned={!!displayPositions[node.id]}
+                isPinned={!!freePositions[node.id]}
                 kinshipRole={selectedPersonId ? kinshipByNode.get(node.id) ?? "other" : null}
                 onPickRelation={
                   node.id === selectedPersonId
@@ -691,6 +729,10 @@ function CoupleBackground({
   );
 }
 
+function nodeTransform(x: number, y: number): string {
+  return `translate(${x - CANVAS_NODE_WIDTH / 2} ${y - CANVAS_NODE_HEIGHT / 2})`;
+}
+
 function parentPath(edge: RenderedParentEdge): string {
   const parent =
     edge.kind === "single"
@@ -771,6 +813,15 @@ function isCloseKin(role: KinshipRole | undefined): boolean {
 
 function countLabel(count: number, singular: string, plural = `${singular}s`): string {
   return `${count} ${count === 1 ? singular : plural}`;
+}
+
+function shouldShowPerfMeter(): boolean {
+  if (typeof window === "undefined") return false;
+  return (
+    window.location.hostname === "127.0.0.1" ||
+    window.location.hostname === "localhost" ||
+    window.location.hostname.endsWith(".pages.dev")
+  );
 }
 
 function pickerTitle(anchorName: string, relation: Relation): string {

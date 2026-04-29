@@ -13,6 +13,7 @@ import {
 type FamilyCanvasNodeProps = {
   node: FamilyCanvasNode;
   isSelected: boolean;
+  isDragging: boolean;
   isDimmed: boolean;
   isPinned: boolean;
   kinshipRole: KinshipRole | null;
@@ -27,6 +28,7 @@ export type NodeRelationAction = "parent" | "child" | "spouse";
 export function FamilyCanvasNodeView({
   node,
   isSelected,
+  isDragging,
   isDimmed,
   isPinned,
   kinshipRole,
@@ -42,7 +44,7 @@ export function FamilyCanvasNodeView({
 
   return (
     <g
-      className={`family-node ${isSelected ? "selected" : ""} ${isDimmed ? "dimmed" : ""} ${isPinned ? "pinned" : ""} ${kinshipRole ? `kin-${kinshipRole}` : ""}`}
+      className={`family-node ${isSelected ? "selected" : ""} ${isDragging ? "dragging" : ""} ${isDimmed ? "dimmed" : ""} ${isPinned ? "pinned" : ""} ${kinshipRole ? `kin-${kinshipRole}` : ""}`}
       transform={`translate(${node.x - CANVAS_NODE_WIDTH / 2} ${node.y - CANVAS_NODE_HEIGHT / 2})`}
       onPointerDown={onPointerDown}
       onClick={onClick}
