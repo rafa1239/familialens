@@ -26,6 +26,10 @@ export function TopBar({
   const focusMode = useStore((s) => s.focusMode);
   const setFocusMode = useStore((s) => s.setFocusMode);
   const selectedPersonId = useStore((s) => s.selectedPersonId);
+  const cloudSync = useStore((s) => s.cloudSync);
+  const unlockCloudSync = useStore((s) => s.unlockCloudSync);
+  const syncCloudNow = useStore((s) => s.syncCloudNow);
+  const lockCloudSync = useStore((s) => s.lockCloudSync);
   const undo = useStore((s) => s.undo);
   const redo = useStore((s) => s.redo);
   const pastLen = useStore((s) => s.past.length);
@@ -181,6 +185,21 @@ export function TopBar({
     setTimeout(() => setStatus(null), 1500);
   };
 
+  const handleCloudClick = async () => {
+    if (cloudSync.kind === "saved" || cloudSync.kind === "saving" || cloudSync.kind === "checking") {
+      await syncCloudNow();
+      return;
+    }
+    const key = window.prompt("Cloud save key");
+    if (!key) return;
+    await unlockCloudSync(key);
+  };
+
+  const handleCloudLock = () => {
+    if (!window.confirm("Forget this browser's cloud save key?")) return;
+    lockCloudSync();
+  };
+
   return (
     <header className="topbar">
       <div className="brand">
@@ -249,6 +268,17 @@ export function TopBar({
 
       <div className="topbar-actions">
         {status && <span className="topbar-status">{status}</span>}
+        <button
+          className={`cloud-sync-pill state-${cloudSync.kind}`}
+          onClick={handleCloudClick}
+          onContextMenu={(event) => {
+            event.preventDefault();
+            handleCloudLock();
+          }}
+          title={cloudSync.savedAt ? `${cloudSync.message} at ${cloudSync.savedAt}` : cloudSync.message}
+        >
+          {cloudLabel(cloudSync.kind)}
+        </button>
         <button
           className="ghost"
           onClick={undo}
@@ -323,4 +353,13 @@ export function TopBar({
       />
     </header>
   );
+}
+
+function cloudLabel(kind: string): string {
+  if (kind === "saved") return "Cloud saved";
+  if (kind === "saving") return "Cloud saving";
+  if (kind === "checking") return "Cloud checking";
+  if (kind === "error") return "Cloud error";
+  if (kind === "local") return "Local only";
+  return "Cloud locked";
 }

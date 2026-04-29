@@ -160,6 +160,37 @@ button, input, select, textarea { font: inherit; color: inherit; }
   margin-right: 8px;
   animation: fade-in 200ms ease;
 }
+.cloud-sync-pill {
+  min-width: 94px;
+  height: 28px;
+  padding: 0 9px;
+  border-radius: 999px;
+  font-size: 0.68rem;
+  font-weight: 800;
+  white-space: nowrap;
+}
+.cloud-sync-pill.state-saved {
+  border-color: rgba(36, 127, 117, 0.2);
+  background: var(--accent-teal-soft);
+  color: var(--accent-teal);
+}
+.cloud-sync-pill.state-saving,
+.cloud-sync-pill.state-checking {
+  border-color: rgba(184, 113, 24, 0.24);
+  background: rgba(184, 113, 24, 0.1);
+  color: var(--accent);
+}
+.cloud-sync-pill.state-error {
+  border-color: rgba(188, 90, 74, 0.24);
+  background: var(--danger-soft);
+  color: var(--danger);
+}
+.cloud-sync-pill.state-locked,
+.cloud-sync-pill.state-local {
+  border-color: var(--border);
+  background: var(--bg-surface);
+  color: var(--ink-muted);
+}
 
 /* ─── Export dropdown ─── */
 .topbar-dropdown-wrap {

@@ -20,6 +20,16 @@ import {
 import { parseDate } from "./dates";
 import type { ParsedStatement } from "./parseNarrative";
 import { createDemoData, DEMO_DATASET_ID } from "./demoFamily";
+import {
+  CLOUD_LOCKED,
+  clearCloudKey,
+  hasCloudKey,
+  loadCloudBackup,
+  newerSnapshot,
+  saveCloudBackup,
+  writeCloudKey,
+  type CloudSyncState
+} from "./cloudSync";
 
 // ─── Factories ───────────────────────────────────────
 
@@ -69,6 +79,7 @@ interface Store {
   viewMode: ViewMode;
   focusMode: FocusMode;
   toasts: Toast[];
+  cloudSync: CloudSyncState;
 
   // History
   past: DataState[];
@@ -87,6 +98,9 @@ interface Store {
   // Init
   init: () => Promise<void>;
   importData: (data: DataState) => void;
+  unlockCloudSync: (key: string) => Promise<void>;
+  lockCloudSync: () => void;
+  syncCloudNow: () => Promise<void>;
   loadDemo: () => void;
   isDemo: () => boolean;
   reset: () => void;
@@ -209,12 +223,40 @@ export type ApplyNarrativeResult = {
 // ─── Save debounce ───────────────────────────────────
 
 let saveTimer: ReturnType<typeof setTimeout> | null = null;
+let cloudSaveTimer: ReturnType<typeof setTimeout> | null = null;
 
-function scheduleSave(data: DataState) {
+function scheduleSave(
+  data: DataState,
+  setCloudSync?: (state: CloudSyncState) => void
+) {
   if (saveTimer) clearTimeout(saveTimer);
   saveTimer = setTimeout(() => {
     saveSnapshot(data).catch(() => undefined);
   }, 250);
+
+  if (!hasCloudKey()) {
+    setCloudSync?.(CLOUD_LOCKED);
+    return;
+  }
+
+  setCloudSync?.({ kind: "saving", message: "Saving to cloud" });
+  if (cloudSaveTimer) clearTimeout(cloudSaveTimer);
+  cloudSaveTimer = setTimeout(() => {
+    saveCloudBackup(data)
+      .then((backup) => {
+        setCloudSync?.({
+          kind: "saved",
+          message: "Cloud saved",
+          savedAt: backup.savedAt
+        });
+      })
+      .catch((error: unknown) => {
+        setCloudSync?.({
+          kind: "error",
+          message: error instanceof Error ? error.message : "Cloud save failed"
+        });
+      });
+  }, 900);
 }
 
 // ─── Upsert helper for quick facts ───────────────────
@@ -314,7 +356,7 @@ export const useStore = create<Store>()((set, get) => {
       future: [],
       ...extra
     });
-    scheduleSave(touched);
+    scheduleSave(touched, (cloudSync) => set({ cloudSync }));
   };
 
   return {
@@ -325,6 +367,7 @@ export const useStore = create<Store>()((set, get) => {
     viewMode: "tree",
     focusMode: "all",
     toasts: [],
+    cloudSync: CLOUD_LOCKED,
     past: [],
     future: [],
 
@@ -346,10 +389,46 @@ export const useStore = create<Store>()((set, get) => {
     },
 
     async init() {
+      set({
+        cloudSync: hasCloudKey()
+          ? { kind: "checking", message: "Checking cloud" }
+          : CLOUD_LOCKED
+      });
       try {
-        const snapshot = await loadSnapshot();
+        const localSnapshot = await loadSnapshot();
+        let cloudSnapshot: DataState | null = null;
+        let cloudSavedAt: string | undefined;
+
+        if (hasCloudKey()) {
+          try {
+            const backup = await loadCloudBackup();
+            cloudSnapshot = backup?.snapshot ?? null;
+            cloudSavedAt = backup?.savedAt;
+          } catch (error) {
+            set({
+              cloudSync: {
+                kind: "error",
+                message: error instanceof Error ? error.message : "Cloud load failed"
+              }
+            });
+          }
+        }
+
+        const snapshot = newerSnapshot(localSnapshot, cloudSnapshot);
         if (snapshot) {
-          set({ data: snapshot, hydrated: true });
+          set({
+            data: snapshot,
+            hydrated: true,
+            cloudSync: cloudSnapshot
+              ? { kind: "saved", message: "Cloud loaded", savedAt: cloudSavedAt }
+              : hasCloudKey()
+                ? { kind: "saving", message: "Saving to cloud" }
+                : CLOUD_LOCKED
+          });
+          saveSnapshot(snapshot).catch(() => undefined);
+          if (hasCloudKey() && snapshot !== cloudSnapshot) {
+            scheduleSave(snapshot, (cloudSync) => set({ cloudSync }));
+          }
         } else {
           // First visit: auto-load the demo family so the portfolio
           // experience is instant. V8 lands on the family canvas first;
@@ -359,17 +438,86 @@ export const useStore = create<Store>()((set, get) => {
             data: demo,
             hydrated: true,
             viewMode: "tree",
-            selectedPersonId: "person_demo_sofia"
+            selectedPersonId: "person_demo_sofia",
+            cloudSync: hasCloudKey()
+              ? { kind: "saving", message: "Saving to cloud" }
+              : CLOUD_LOCKED
           });
-          saveSnapshot(demo);
+          scheduleSave(demo, (cloudSync) => set({ cloudSync }));
         }
       } catch {
-        set({ hydrated: true });
+        set({
+          hydrated: true,
+          cloudSync: hasCloudKey()
+            ? { kind: "error", message: "Could not load local data" }
+            : CLOUD_LOCKED
+        });
       }
     },
 
     importData(data) {
       commit(data, { selectedPersonId: null, selectedEventId: null });
+    },
+
+    async unlockCloudSync(key) {
+      const trimmed = key.trim();
+      if (!trimmed) return;
+      writeCloudKey(trimmed);
+      set({ cloudSync: { kind: "checking", message: "Checking cloud" } });
+      try {
+        const localSnapshot = get().data;
+        const backup = await loadCloudBackup();
+        const cloudSnapshot = backup?.snapshot ?? null;
+        const snapshot = newerSnapshot(localSnapshot, cloudSnapshot) ?? localSnapshot;
+        set({
+          data: snapshot,
+          cloudSync: cloudSnapshot
+            ? { kind: "saved", message: "Cloud loaded", savedAt: backup?.savedAt }
+            : { kind: "saving", message: "Saving to cloud" }
+        });
+        saveSnapshot(snapshot).catch(() => undefined);
+        if (snapshot !== cloudSnapshot) {
+          scheduleSave(snapshot, (cloudSync) => set({ cloudSync }));
+        }
+      } catch (error) {
+        set({
+          cloudSync: {
+            kind: "error",
+            message: error instanceof Error ? error.message : "Cloud unlock failed"
+          }
+        });
+      }
+    },
+
+    lockCloudSync() {
+      clearCloudKey();
+      set({ cloudSync: CLOUD_LOCKED });
+    },
+
+    async syncCloudNow() {
+      if (!hasCloudKey()) {
+        set({ cloudSync: CLOUD_LOCKED });
+        return;
+      }
+      const snapshot = get().data;
+      set({ cloudSync: { kind: "saving", message: "Saving to cloud" } });
+      try {
+        const backup = await saveCloudBackup(snapshot);
+        set({
+          cloudSync: {
+            kind: "saved",
+            message: "Cloud saved",
+            savedAt: backup.savedAt
+          }
+        });
+      } catch (error) {
+        set({
+          cloudSync: {
+            kind: "error",
+            message: error instanceof Error ? error.message : "Cloud save failed"
+          }
+        });
+      }
     },
 
     loadDemo() {
@@ -397,7 +545,7 @@ export const useStore = create<Store>()((set, get) => {
         past: s.past.slice(0, -1),
         future: [s.data, ...s.future].slice(0, MAX_HISTORY)
       });
-      scheduleSave(previous);
+      scheduleSave(previous, (cloudSync) => set({ cloudSync }));
     },
     redo() {
       const s = get();
@@ -408,7 +556,7 @@ export const useStore = create<Store>()((set, get) => {
         past: [...s.past, s.data].slice(-MAX_HISTORY),
         future: s.future.slice(1)
       });
-      scheduleSave(next);
+      scheduleSave(next, (cloudSync) => set({ cloudSync }));
     },
     canUndo() { return get().past.length > 0; },
     canRedo() { return get().future.length > 0; },
