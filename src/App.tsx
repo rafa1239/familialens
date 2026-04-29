@@ -8,6 +8,7 @@ import { MapView } from "./ui/MapView";
 import { AtlasView } from "./ui/AtlasView";
 import { Inspector } from "./ui/Inspector";
 import { Toasts } from "./ui/Toasts";
+import { AuthScreen } from "./ui/AuthScreen";
 import { EmptyWorkspace } from "./ui/EmptyWorkspace";
 import { PlacesPanel } from "./ui/PlacesPanel";
 import { StatsPanel } from "./ui/StatsPanel";
@@ -24,6 +25,7 @@ import {
 export function App() {
   const init = useStore((s) => s.init);
   const hydrated = useStore((s) => s.hydrated);
+  const authUser = useStore((s) => s.authUser);
   const viewMode = useStore((s) => s.viewMode);
   const setViewMode = useStore((s) => s.setViewMode);
   const selectPerson = useStore((s) => s.selectPerson);
@@ -45,6 +47,7 @@ export function App() {
 
   useEffect(() => {
     const handleKey = (e: KeyboardEvent) => {
+      if (!useStore.getState().authUser) return;
       const t = e.target as HTMLElement | null;
       const tag = t?.tagName;
       const inInput =
@@ -169,6 +172,10 @@ export function App() {
   }
 
   // First-run: completely empty dataset → full-workspace welcome
+  if (!authUser) {
+    return <AuthScreen />;
+  }
+
   if (peopleCount === 0) {
     return (
       <div className="app">

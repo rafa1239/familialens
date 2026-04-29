@@ -1,39 +1,31 @@
 /**
- * Photo storage. Photos are stored as Blobs in IndexedDB (separate store
- * from the main snapshot) and referenced by id in events/people. When the
- * UI needs to display a photo, it calls `loadPhotoUrl(id)` which returns
- * an object URL cached in memory for the lifetime of the page.
+ * Photo storage for the online-only app.
+ *
+ * Photos are compressed client-side and stored as data URLs inside the
+ * authenticated online snapshot. Nothing durable is written to this PC.
  */
 
-import { loadPhoto, savePhoto, deletePhoto } from "./db";
-import { createId } from "./ids";
-
-const urlCache = new Map<string, string>();
-
 export async function addPhoto(file: Blob): Promise<string> {
-  const id = createId("photo");
-  // Downscale + re-encode to JPEG to keep the snapshot small.
   const blob = await compressImage(file, 1200, 0.85);
-  await savePhoto(id, blob);
-  return id;
+  return blobToDataUrl(blob);
 }
 
 export async function getPhotoUrl(id: string): Promise<string | null> {
-  if (urlCache.has(id)) return urlCache.get(id)!;
-  const blob = await loadPhoto(id);
-  if (!blob) return null;
-  const url = URL.createObjectURL(blob);
-  urlCache.set(id, url);
-  return url;
+  if (id.startsWith("data:") || id.startsWith("http")) return id;
+  return null;
 }
 
-export async function removePhoto(id: string): Promise<void> {
-  const url = urlCache.get(id);
-  if (url) {
-    URL.revokeObjectURL(url);
-    urlCache.delete(id);
-  }
-  await deletePhoto(id);
+export async function removePhoto(_id: string): Promise<void> {
+  return;
+}
+
+async function blobToDataUrl(blob: Blob): Promise<string> {
+  return await new Promise<string>((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result as string);
+    reader.onerror = () => reject(reader.error);
+    reader.readAsDataURL(blob);
+  });
 }
 
 /**

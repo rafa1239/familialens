@@ -1,20 +1,29 @@
 import type { DataState } from "./types";
 
-const CLOUD_KEY_STORAGE = "familialens:v8-cloud-key";
-
 export type CloudSyncKind =
   | "locked"
   | "checking"
   | "pending"
   | "saving"
   | "saved"
-  | "local"
   | "error";
 
 export type CloudSyncState = {
   kind: CloudSyncKind;
   message: string;
   savedAt?: string;
+};
+
+export type AuthUser = {
+  id: string;
+  username: string;
+  createdAt?: string;
+};
+
+export type AuthSession = {
+  authenticated: boolean;
+  user: AuthUser | null;
+  canRegister: boolean;
 };
 
 export type CloudBackup = {
@@ -24,40 +33,52 @@ export type CloudBackup = {
 
 export const CLOUD_LOCKED: CloudSyncState = {
   kind: "locked",
-  message: "Cloud locked"
+  message: "Sign in to save online"
 };
 
-export function readCloudKey(): string | null {
-  if (typeof window === "undefined") return null;
-  try {
-    const value = window.localStorage.getItem(CLOUD_KEY_STORAGE)?.trim();
-    return value || null;
-  } catch {
-    return null;
-  }
+export async function getAuthSession(): Promise<AuthSession> {
+  const response = await fetch(apiEndpoint("auth/session"), {
+    method: "GET",
+    credentials: "include",
+    cache: "no-store"
+  });
+
+  if (!response.ok) throw new Error(await responseMessage(response));
+  const payload = await response.json() as Partial<AuthSession>;
+  return {
+    authenticated: !!payload.authenticated,
+    user: payload.user ?? null,
+    canRegister: !!payload.canRegister
+  };
 }
 
-export function writeCloudKey(value: string): void {
-  if (typeof window === "undefined") return;
-  window.localStorage.setItem(CLOUD_KEY_STORAGE, value.trim());
+export async function loginOnline(
+  username: string,
+  password: string
+): Promise<AuthUser> {
+  return authenticate("auth/login", username, password);
 }
 
-export function clearCloudKey(): void {
-  if (typeof window === "undefined") return;
-  window.localStorage.removeItem(CLOUD_KEY_STORAGE);
+export async function registerOnline(
+  username: string,
+  password: string
+): Promise<AuthUser> {
+  return authenticate("auth/register", username, password);
 }
 
-export function hasCloudKey(): boolean {
-  return !!readCloudKey();
+export async function logoutOnline(): Promise<void> {
+  const response = await fetch(apiEndpoint("auth/logout"), {
+    method: "POST",
+    credentials: "include",
+    cache: "no-store"
+  });
+  if (!response.ok) throw new Error(await responseMessage(response));
 }
 
 export async function loadCloudBackup(): Promise<CloudBackup | null> {
-  const key = readCloudKey();
-  if (!key) return null;
-
-  const response = await fetch(cloudEndpoint(), {
+  const response = await fetch(apiEndpoint("snapshot"), {
     method: "GET",
-    headers: authHeaders(key),
+    credentials: "include",
     cache: "no-store"
   });
 
@@ -66,7 +87,7 @@ export async function loadCloudBackup(): Promise<CloudBackup | null> {
 
   const payload = await response.json() as Partial<CloudBackup>;
   if (!payload.snapshot || !payload.savedAt) {
-    throw new Error("Cloud response was incomplete.");
+    throw new Error("Online response was incomplete.");
   }
   return {
     snapshot: payload.snapshot,
@@ -75,13 +96,10 @@ export async function loadCloudBackup(): Promise<CloudBackup | null> {
 }
 
 export async function saveCloudBackup(snapshot: DataState): Promise<CloudBackup> {
-  const key = readCloudKey();
-  if (!key) throw new Error("Cloud save key is missing.");
-
-  const response = await fetch(cloudEndpoint(), {
+  const response = await fetch(apiEndpoint("snapshot"), {
     method: "PUT",
+    credentials: "include",
     headers: {
-      ...authHeaders(key),
       "Content-Type": "application/json"
     },
     body: JSON.stringify({ snapshot })
@@ -90,34 +108,42 @@ export async function saveCloudBackup(snapshot: DataState): Promise<CloudBackup>
   if (!response.ok) throw new Error(await responseMessage(response));
 
   const payload = await response.json() as Partial<CloudBackup>;
-  if (!payload.savedAt) throw new Error("Cloud save response was incomplete.");
+  if (!payload.savedAt) throw new Error("Online save response was incomplete.");
   return {
     snapshot,
     savedAt: payload.savedAt
   };
 }
 
-export function newerSnapshot(
-  localSnapshot: DataState | null,
-  cloudSnapshot: DataState | null
-): DataState | null {
-  if (!localSnapshot) return cloudSnapshot;
-  if (!cloudSnapshot) return localSnapshot;
-  return timestampOf(cloudSnapshot.updatedAt) > timestampOf(localSnapshot.updatedAt)
-    ? cloudSnapshot
-    : localSnapshot;
+async function authenticate(
+  path: string,
+  username: string,
+  password: string
+): Promise<AuthUser> {
+  const response = await fetch(apiEndpoint(path), {
+    method: "POST",
+    credentials: "include",
+    cache: "no-store",
+    headers: {
+      "Content-Type": "application/json"
+    },
+    body: JSON.stringify({ username, password })
+  });
+
+  if (!response.ok) throw new Error(await responseMessage(response));
+  const payload = await response.json() as { user?: AuthUser };
+  if (!payload.user) throw new Error("Login response was incomplete.");
+  return payload.user;
 }
 
-function cloudEndpoint(): string {
+function apiEndpoint(path: string): string {
   const base = import.meta.env.BASE_URL || "/";
-  if (typeof window === "undefined") return `${base}api/snapshot`;
-  return new URL(`${base.replace(/\/?$/, "/")}api/snapshot`, window.location.origin).toString();
-}
-
-function authHeaders(key: string): HeadersInit {
-  return {
-    Authorization: `Bearer ${key}`
-  };
+  const cleanPath = path.replace(/^\/+/, "");
+  if (typeof window === "undefined") return `${base}api/${cleanPath}`;
+  return new URL(
+    `${base.replace(/\/?$/, "/")}api/${cleanPath}`,
+    window.location.origin
+  ).toString();
 }
 
 async function responseMessage(response: Response): Promise<string> {
@@ -127,9 +153,4 @@ async function responseMessage(response: Response): Promise<string> {
   } catch {
     return `${response.status} ${response.statusText}`;
   }
-}
-
-function timestampOf(value: string | undefined): number {
-  const time = value ? Date.parse(value) : 0;
-  return Number.isFinite(time) ? time : 0;
 }

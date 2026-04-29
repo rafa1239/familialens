@@ -1,81 +1,37 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useMemo } from "react";
+import { useStore } from "../../store";
 import type { DataState } from "../../types";
 import type { FreeCanvasPositions } from "./canvasModel";
 
-const STORAGE_PREFIX = "familialens:v8-free-canvas";
-
-type PositionState = {
-  storageKey: string;
-  positions: FreeCanvasPositions;
-};
-
 export function useFreeCanvasPositions(data: DataState) {
-  const storageKey = useMemo(() => `${STORAGE_PREFIX}:${data.datasetId}`, [data.datasetId]);
-  const [state, setState] = useState<PositionState>(() => ({
-    storageKey,
-    positions: readFreeCanvasPositions(storageKey)
-  }));
-  const positions = state.storageKey === storageKey ? state.positions : {};
-
-  useEffect(() => {
-    setState({
-      storageKey,
-      positions: readFreeCanvasPositions(storageKey)
-    });
-  }, [storageKey]);
-
-  useEffect(() => {
-    const peopleIds = new Set(Object.keys(data.people));
-    setState((current) => {
-      if (current.storageKey !== storageKey) return current;
-      return {
-        storageKey,
-        positions: pruneFreeCanvasPositions(current.positions, peopleIds)
-      };
-    });
-  }, [data.people, storageKey]);
-
-  useEffect(() => {
-    if (state.storageKey !== storageKey) return;
-    writeFreeCanvasPositions(storageKey, state.positions);
-  }, [state, storageKey]);
+  const updateCanvasPositions = useStore((s) => s.updateCanvasPositions);
+  const peopleIds = useMemo(() => new Set(Object.keys(data.people)), [data.people]);
+  const positions = useMemo(
+    () => pruneFreeCanvasPositions(data.canvas?.freePositions ?? {}, peopleIds),
+    [data.canvas?.freePositions, peopleIds]
+  );
 
   const setPersonPosition = useCallback((personId: string, x: number, y: number) => {
-    setState((current) => {
-      const base =
-        current.storageKey === storageKey
-          ? current.positions
-          : readFreeCanvasPositions(storageKey);
-      return {
-        storageKey,
-        positions: {
-          ...base,
-          [personId]: {
-            x: roundCoordinate(x),
-            y: roundCoordinate(y),
-            pinned: true
-          }
-        }
-      };
+    updateCanvasPositions({
+      ...positions,
+      [personId]: {
+        x: roundCoordinate(x),
+        y: roundCoordinate(y),
+        pinned: true
+      }
     });
-  }, [storageKey]);
+  }, [positions, updateCanvasPositions]);
 
   const releasePersonPosition = useCallback((personId: string) => {
-    setState((current) => {
-      const base =
-        current.storageKey === storageKey
-          ? current.positions
-          : readFreeCanvasPositions(storageKey);
-      if (!base[personId]) return current.storageKey === storageKey ? current : { storageKey, positions: base };
-      const next = { ...base };
-      delete next[personId];
-      return { storageKey, positions: next };
-    });
-  }, [storageKey]);
+    if (!positions[personId]) return;
+    const next = { ...positions };
+    delete next[personId];
+    updateCanvasPositions(next);
+  }, [positions, updateCanvasPositions]);
 
   const clearPositions = useCallback(() => {
-    setState({ storageKey, positions: {} });
-  }, [storageKey]);
+    updateCanvasPositions({});
+  }, [updateCanvasPositions]);
 
   return {
     positions,
@@ -97,32 +53,6 @@ export function pruneFreeCanvasPositions(
     next[personId] = position;
   }
   return next;
-}
-
-function readFreeCanvasPositions(storageKey: string): FreeCanvasPositions {
-  if (typeof window === "undefined") return {};
-  try {
-    const raw = window.localStorage.getItem(storageKey);
-    if (!raw) return {};
-    const parsed = JSON.parse(raw) as FreeCanvasPositions;
-    if (!parsed || typeof parsed !== "object") return {};
-    return pruneFreeCanvasPositions(parsed, new Set(Object.keys(parsed)));
-  } catch {
-    return {};
-  }
-}
-
-function writeFreeCanvasPositions(storageKey: string, positions: FreeCanvasPositions) {
-  if (typeof window === "undefined") return;
-  try {
-    if (Object.keys(positions).length === 0) {
-      window.localStorage.removeItem(storageKey);
-    } else {
-      window.localStorage.setItem(storageKey, JSON.stringify(positions));
-    }
-  } catch {
-    // Ignore quota/privacy failures; the canvas still works for this session.
-  }
 }
 
 function roundCoordinate(value: number): number {

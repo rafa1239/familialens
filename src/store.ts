@@ -5,11 +5,11 @@ import type {
   Gender,
   Person,
   Place,
-  Source
+  Source,
+  CanvasPosition
 } from "./types";
 import { SCHEMA_VERSION } from "./types";
 import { createId, nowIso } from "./ids";
-import { loadSnapshot, saveSnapshot } from "./db";
 import {
   findBirthEvent,
   findDeathEvent,
@@ -22,12 +22,13 @@ import type { ParsedStatement } from "./parseNarrative";
 import { createDemoData, DEMO_DATASET_ID } from "./demoFamily";
 import {
   CLOUD_LOCKED,
-  clearCloudKey,
-  hasCloudKey,
+  getAuthSession,
+  loginOnline,
   loadCloudBackup,
-  newerSnapshot,
+  logoutOnline,
+  registerOnline,
   saveCloudBackup,
-  writeCloudKey,
+  type AuthUser,
   type CloudSyncState
 } from "./cloudSync";
 
@@ -64,8 +65,7 @@ export type ViewMode = "timeline" | "tree" | "map" | "atlas";
 export type FocusMode = "all" | "ancestors" | "descendants";
 
 const MAX_HISTORY = 50;
-const LOCAL_SAVE_DEBOUNCE_MS = 250;
-const CLOUD_SAVE_DEBOUNCE_MS = 20_000;
+const CLOUD_SAVE_DEBOUNCE_MS = 1_500;
 
 export type RelationshipResult =
   | { ok: true; eventId?: string }
@@ -82,6 +82,8 @@ interface Store {
   focusMode: FocusMode;
   toasts: Toast[];
   cloudSync: CloudSyncState;
+  authUser: AuthUser | null;
+  canRegister: boolean;
 
   // History
   past: DataState[];
@@ -100,12 +102,14 @@ interface Store {
   // Init
   init: () => Promise<void>;
   importData: (data: DataState) => void;
-  unlockCloudSync: (key: string) => Promise<void>;
-  lockCloudSync: () => void;
+  login: (username: string, password: string) => Promise<void>;
+  register: (username: string, password: string) => Promise<void>;
+  logout: () => Promise<void>;
   syncCloudNow: () => Promise<void>;
   loadDemo: () => void;
   isDemo: () => boolean;
   reset: () => void;
+  updateCanvasPositions: (positions: Record<string, CanvasPosition>) => void;
 
   // History
   undo: () => void;
@@ -224,19 +228,14 @@ export type ApplyNarrativeResult = {
 
 // ─── Save debounce ───────────────────────────────────
 
-let saveTimer: ReturnType<typeof setTimeout> | null = null;
 let cloudSaveTimer: ReturnType<typeof setTimeout> | null = null;
 
 function scheduleSave(
   data: DataState,
+  isSignedIn: boolean,
   setCloudSync?: (state: CloudSyncState) => void
 ) {
-  if (saveTimer) clearTimeout(saveTimer);
-  saveTimer = setTimeout(() => {
-    saveSnapshot(data).catch(() => undefined);
-  }, LOCAL_SAVE_DEBOUNCE_MS);
-
-  if (!hasCloudKey()) {
+  if (!isSignedIn) {
     setCloudSync?.(CLOUD_LOCKED);
     return;
   }
@@ -359,7 +358,47 @@ export const useStore = create<Store>()((set, get) => {
       future: [],
       ...extra
     });
-    scheduleSave(touched, (cloudSync) => set({ cloudSync }));
+    scheduleSave(touched, !!s.authUser, (cloudSync) => set({ cloudSync }));
+  };
+
+  const loadOnlineData = async (user: AuthUser, canRegister: boolean) => {
+    set({
+      authUser: user,
+      canRegister,
+      cloudSync: { kind: "checking", message: "Loading online tree" }
+    });
+    try {
+      const backup = await loadCloudBackup();
+      const snapshot = backup?.snapshot ?? createEmptyDataState();
+      set({
+        data: snapshot,
+        hydrated: true,
+        authUser: user,
+        canRegister,
+        selectedPersonId: null,
+        selectedEventId: null,
+        past: [],
+        future: [],
+        cloudSync: backup
+          ? { kind: "saved", message: "Online tree loaded", savedAt: backup.savedAt }
+          : { kind: "saved", message: "Online tree ready" }
+      });
+    } catch (error) {
+      set({
+        data: createEmptyDataState(),
+        hydrated: true,
+        authUser: user,
+        canRegister,
+        selectedPersonId: null,
+        selectedEventId: null,
+        past: [],
+        future: [],
+        cloudSync: {
+          kind: "error",
+          message: error instanceof Error ? error.message : "Could not load online tree"
+        }
+      });
+    }
   };
 
   return {
@@ -371,6 +410,8 @@ export const useStore = create<Store>()((set, get) => {
     focusMode: "all",
     toasts: [],
     cloudSync: CLOUD_LOCKED,
+    authUser: null,
+    canRegister: false,
     past: [],
     future: [],
 
@@ -392,68 +433,38 @@ export const useStore = create<Store>()((set, get) => {
     },
 
     async init() {
-      set({
-        cloudSync: hasCloudKey()
-          ? { kind: "checking", message: "Checking cloud" }
-          : CLOUD_LOCKED
-      });
+      set({ cloudSync: { kind: "checking", message: "Checking login" } });
       try {
-        const localSnapshot = await loadSnapshot();
-        let cloudSnapshot: DataState | null = null;
-        let cloudSavedAt: string | undefined;
-
-        if (hasCloudKey()) {
-          try {
-            const backup = await loadCloudBackup();
-            cloudSnapshot = backup?.snapshot ?? null;
-            cloudSavedAt = backup?.savedAt;
-          } catch (error) {
-            set({
-              cloudSync: {
-                kind: "error",
-                message: error instanceof Error ? error.message : "Cloud load failed"
-              }
-            });
-          }
+        const session = await getAuthSession();
+        if (session.authenticated && session.user) {
+          await loadOnlineData(session.user, session.canRegister);
+          return;
         }
-
-        const snapshot = newerSnapshot(localSnapshot, cloudSnapshot);
-        if (snapshot) {
-          set({
-            data: snapshot,
-            hydrated: true,
-            cloudSync: cloudSnapshot
-              ? { kind: "saved", message: "Cloud loaded", savedAt: cloudSavedAt }
-              : hasCloudKey()
-                ? { kind: "saving", message: "Saving to cloud" }
-                : CLOUD_LOCKED
-          });
-          saveSnapshot(snapshot).catch(() => undefined);
-          if (hasCloudKey() && snapshot !== cloudSnapshot) {
-            scheduleSave(snapshot, (cloudSync) => set({ cloudSync }));
-          }
-        } else {
-          // First visit: auto-load the demo family so the portfolio
-          // experience is instant. V8 lands on the family canvas first;
-          // Timeline, Map, and Atlas stay one click away.
-          const demo = createDemoData();
-          set({
-            data: demo,
-            hydrated: true,
-            viewMode: "tree",
-            selectedPersonId: "person_demo_sofia",
-            cloudSync: hasCloudKey()
-              ? { kind: "saving", message: "Saving to cloud" }
-              : CLOUD_LOCKED
-          });
-          scheduleSave(demo, (cloudSync) => set({ cloudSync }));
-        }
-      } catch {
         set({
+          data: createEmptyDataState(),
           hydrated: true,
-          cloudSync: hasCloudKey()
-            ? { kind: "error", message: "Could not load local data" }
-            : CLOUD_LOCKED
+          authUser: null,
+          canRegister: session.canRegister,
+          selectedPersonId: null,
+          selectedEventId: null,
+          past: [],
+          future: [],
+          cloudSync: CLOUD_LOCKED
+        });
+      } catch (error) {
+        set({
+          data: createEmptyDataState(),
+          hydrated: true,
+          authUser: null,
+          canRegister: false,
+          selectedPersonId: null,
+          selectedEventId: null,
+          past: [],
+          future: [],
+          cloudSync: {
+            kind: "error",
+            message: error instanceof Error ? error.message : "Could not check login"
+          }
         });
       }
     },
@@ -462,43 +473,61 @@ export const useStore = create<Store>()((set, get) => {
       commit(data, { selectedPersonId: null, selectedEventId: null });
     },
 
-    async unlockCloudSync(key) {
-      const trimmed = key.trim();
-      if (!trimmed) return;
-      writeCloudKey(trimmed);
-      set({ cloudSync: { kind: "checking", message: "Checking cloud" } });
+    async login(username, password) {
+      set({ cloudSync: { kind: "checking", message: "Signing in" } });
       try {
-        const localSnapshot = get().data;
-        const backup = await loadCloudBackup();
-        const cloudSnapshot = backup?.snapshot ?? null;
-        const snapshot = newerSnapshot(localSnapshot, cloudSnapshot) ?? localSnapshot;
-        set({
-          data: snapshot,
-          cloudSync: cloudSnapshot
-            ? { kind: "saved", message: "Cloud loaded", savedAt: backup?.savedAt }
-            : { kind: "saving", message: "Saving to cloud" }
-        });
-        saveSnapshot(snapshot).catch(() => undefined);
-        if (snapshot !== cloudSnapshot) {
-          scheduleSave(snapshot, (cloudSync) => set({ cloudSync }));
-        }
+        const user = await loginOnline(username, password);
+        await loadOnlineData(user, get().canRegister);
       } catch (error) {
         set({
+          authUser: null,
           cloudSync: {
             kind: "error",
-            message: error instanceof Error ? error.message : "Cloud unlock failed"
+            message: error instanceof Error ? error.message : "Login failed"
           }
         });
       }
     },
 
-    lockCloudSync() {
-      clearCloudKey();
-      set({ cloudSync: CLOUD_LOCKED });
+    async register(username, password) {
+      set({ cloudSync: { kind: "checking", message: "Creating account" } });
+      try {
+        const user = await registerOnline(username, password);
+        await loadOnlineData(user, false);
+      } catch (error) {
+        set({
+          authUser: null,
+          cloudSync: {
+            kind: "error",
+            message: error instanceof Error ? error.message : "Account creation failed"
+          }
+        });
+      }
+    },
+
+    async logout() {
+      if (cloudSaveTimer) {
+        clearTimeout(cloudSaveTimer);
+        cloudSaveTimer = null;
+      }
+      try {
+        await logoutOnline();
+      } catch {
+        // Local UI state still clears; the server session may already be gone.
+      }
+      set({
+        data: createEmptyDataState(),
+        authUser: null,
+        selectedPersonId: null,
+        selectedEventId: null,
+        past: [],
+        future: [],
+        cloudSync: CLOUD_LOCKED
+      });
     },
 
     async syncCloudNow() {
-      if (!hasCloudKey()) {
+      if (!get().authUser) {
         set({ cloudSync: CLOUD_LOCKED });
         return;
       }
@@ -507,13 +536,13 @@ export const useStore = create<Store>()((set, get) => {
         cloudSaveTimer = null;
       }
       const snapshot = get().data;
-      set({ cloudSync: { kind: "saving", message: "Saving to cloud" } });
+      set({ cloudSync: { kind: "saving", message: "Saving online" } });
       try {
         const backup = await saveCloudBackup(snapshot);
         set({
           cloudSync: {
             kind: "saved",
-            message: "Cloud saved",
+            message: "Online tree saved",
             savedAt: backup.savedAt
           }
         });
@@ -521,7 +550,7 @@ export const useStore = create<Store>()((set, get) => {
         set({
           cloudSync: {
             kind: "error",
-            message: error instanceof Error ? error.message : "Cloud save failed"
+            message: error instanceof Error ? error.message : "Online save failed"
           }
         });
       }
@@ -542,6 +571,17 @@ export const useStore = create<Store>()((set, get) => {
       commit(empty, { selectedPersonId: null, selectedEventId: null });
     },
 
+    updateCanvasPositions(positions) {
+      const s = get();
+      commit({
+        ...s.data,
+        canvas: {
+          ...s.data.canvas,
+          freePositions: positions
+        }
+      });
+    },
+
     // ─── Undo / redo ───
     undo() {
       const s = get();
@@ -552,7 +592,7 @@ export const useStore = create<Store>()((set, get) => {
         past: s.past.slice(0, -1),
         future: [s.data, ...s.future].slice(0, MAX_HISTORY)
       });
-      scheduleSave(previous, (cloudSync) => set({ cloudSync }));
+      scheduleSave(previous, !!s.authUser, (cloudSync) => set({ cloudSync }));
     },
     redo() {
       const s = get();
@@ -563,7 +603,7 @@ export const useStore = create<Store>()((set, get) => {
         past: [...s.past, s.data].slice(-MAX_HISTORY),
         future: s.future.slice(1)
       });
-      scheduleSave(next, (cloudSync) => set({ cloudSync }));
+      scheduleSave(next, !!s.authUser, (cloudSync) => set({ cloudSync }));
     },
     canUndo() { return get().past.length > 0; },
     canRedo() { return get().future.length > 0; },

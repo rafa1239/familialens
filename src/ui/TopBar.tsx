@@ -1,4 +1,4 @@
-import { useRef, useState, useEffect, type FormEvent } from "react";
+import { useRef, useState, useEffect } from "react";
 import { useStore } from "../store";
 import { convertV5toV7 } from "../converter";
 import { exportGedcom, parseGedcom } from "../gedcom";
@@ -27,9 +27,9 @@ export function TopBar({
   const setFocusMode = useStore((s) => s.setFocusMode);
   const selectedPersonId = useStore((s) => s.selectedPersonId);
   const cloudSync = useStore((s) => s.cloudSync);
-  const unlockCloudSync = useStore((s) => s.unlockCloudSync);
+  const authUser = useStore((s) => s.authUser);
   const syncCloudNow = useStore((s) => s.syncCloudNow);
-  const lockCloudSync = useStore((s) => s.lockCloudSync);
+  const logout = useStore((s) => s.logout);
   const undo = useStore((s) => s.undo);
   const redo = useStore((s) => s.redo);
   const pastLen = useStore((s) => s.past.length);
@@ -37,9 +37,6 @@ export function TopBar({
   const fileRef = useRef<HTMLInputElement>(null);
   const [status, setStatus] = useState<string | null>(null);
   const [exportOpen, setExportOpen] = useState(false);
-  const [cloudLoginOpen, setCloudLoginOpen] = useState(false);
-  const [cloudKeyInput, setCloudKeyInput] = useState("");
-  const [cloudBusy, setCloudBusy] = useState(false);
   const exportRef = useRef<HTMLDivElement>(null);
 
   const peopleCount = Object.keys(data.people).length;
@@ -189,37 +186,16 @@ export function TopBar({
   };
 
   const handleCloudClick = async () => {
-    if (
-      cloudSync.kind === "saved" ||
-      cloudSync.kind === "pending" ||
-      cloudSync.kind === "saving" ||
-      cloudSync.kind === "checking"
-    ) {
-      await syncCloudNow();
-      return;
-    }
-    setCloudKeyInput("");
-    setCloudLoginOpen(true);
+    await syncCloudNow();
   };
 
-  const handleCloudLogin = async (event: FormEvent) => {
-    event.preventDefault();
-    const key = cloudKeyInput.trim();
-    if (!key) return;
-    setCloudBusy(true);
-    await unlockCloudSync(key);
-    setCloudBusy(false);
-    setCloudLoginOpen(false);
-  };
-
-  const handleCloudLock = () => {
-    if (!window.confirm("Forget this browser's cloud save key?")) return;
-    lockCloudSync();
+  const handleCloudLogout = async () => {
+    if (!window.confirm("Sign out of this online workspace?")) return;
+    await logout();
   };
 
   return (
-    <>
-      <header className="topbar">
+    <header className="topbar">
       <div className="brand">
         <h1>FamiliaLens</h1>
         <span className="version">v8</span>
@@ -291,9 +267,13 @@ export function TopBar({
           onClick={handleCloudClick}
           onContextMenu={(event) => {
             event.preventDefault();
-            handleCloudLock();
+            handleCloudLogout();
           }}
-          title={cloudSync.savedAt ? `${cloudSync.message} at ${cloudSync.savedAt}` : cloudSync.message}
+          title={
+            cloudSync.savedAt
+              ? `${authUser?.username ?? "Online"}: ${cloudSync.message} at ${cloudSync.savedAt}`
+              : `${authUser?.username ?? "Online"}: ${cloudSync.message}`
+          }
         >
           {cloudLabel(cloudSync.kind)}
         </button>
@@ -369,85 +349,15 @@ export function TopBar({
           e.currentTarget.value = "";
         }}
       />
-      </header>
-
-      {cloudLoginOpen && (
-        <div className="modal-backdrop" onClick={() => setCloudLoginOpen(false)}>
-          <form
-            className="modal cloud-login-modal"
-            onSubmit={handleCloudLogin}
-            onClick={(event) => event.stopPropagation()}
-            role="dialog"
-            aria-modal="true"
-            aria-label="Cloud login"
-          >
-            <div className="picker-header">
-              <div>
-                <h3>Cloud login</h3>
-                <p className="picker-sub">
-                  Use the same private key on every device to open this family tree.
-                </p>
-              </div>
-              <button
-                type="button"
-                className="ghost small"
-                onClick={() => setCloudLoginOpen(false)}
-              >
-                Esc
-              </button>
-            </div>
-
-            <div className="cloud-login-body">
-              <label className="cloud-login-field">
-                <span>Cloud save key</span>
-                <input
-                  type="password"
-                  value={cloudKeyInput}
-                  onChange={(event) => setCloudKeyInput(event.target.value)}
-                  autoFocus
-                  autoComplete="current-password"
-                  placeholder="Private key"
-                />
-              </label>
-              <p>
-                This PC keeps a local copy for speed. Once the Cloudflare database is
-                connected, unlocking here loads the newest cloud snapshot and autosaves
-                future edits.
-              </p>
-              {cloudSync.kind === "error" && (
-                <p className="cloud-login-error">{cloudSync.message}</p>
-              )}
-            </div>
-
-            <div className="cloud-login-actions">
-              <button
-                type="button"
-                className="ghost"
-                onClick={() => setCloudLoginOpen(false)}
-              >
-                Cancel
-              </button>
-              <button
-                type="submit"
-                className="primary"
-                disabled={cloudBusy || cloudKeyInput.trim().length === 0}
-              >
-                {cloudBusy ? "Unlocking..." : "Unlock cloud"}
-              </button>
-            </div>
-          </form>
-        </div>
-      )}
-    </>
+    </header>
   );
 }
 
 function cloudLabel(kind: string): string {
-  if (kind === "saved") return "Cloud saved";
-  if (kind === "pending") return "Cloud pending";
-  if (kind === "saving") return "Cloud saving";
-  if (kind === "checking") return "Cloud checking";
+  if (kind === "saved") return "Online saved";
+  if (kind === "pending") return "Online pending";
+  if (kind === "saving") return "Saving online";
+  if (kind === "checking") return "Online checking";
   if (kind === "error") return "Cloud error";
-  if (kind === "local") return "Local only";
-  return "Cloud locked";
+  return "Signed out";
 }

@@ -6,9 +6,9 @@
  * printable tree overview plus a page-like card for every person with
  * their dates, places, relationships, and notes.
  *
- * Photos stored as blob ids (from IndexedDB) are NOT embedded — only
- * data URLs (`data:image/...`) are included. For a full photo-embedded
- * export, photos need to be resolved to data URLs by the caller first.
+ * Photos are embedded when they are saved as data URLs.
+ * Online snapshots store new photos as data URLs, so they can be embedded
+ * directly in the exported album.
  */
 
 import type { DataState, Person, FamilyEvent } from "./types";

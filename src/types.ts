@@ -120,6 +120,16 @@ export type Person = {
   notes?: string;
 };
 
+export type CanvasPosition = {
+  x: number;
+  y: number;
+  pinned?: boolean;
+};
+
+export type CanvasState = {
+  freePositions?: Record<string, CanvasPosition>;
+};
+
 // ─── Dataset ────────────────────────────────────────────
 
 export type DataState = {
@@ -130,6 +140,7 @@ export type DataState = {
   people: Record<string, Person>;
   events: Record<string, FamilyEvent>;
   sources: Record<string, Source>;
+  canvas?: CanvasState;
 };
 
 // ─── Result types ───────────────────────────────────────
