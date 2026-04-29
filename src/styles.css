@@ -175,6 +175,7 @@ button, input, select, textarea { font: inherit; color: inherit; }
   color: var(--accent-teal);
 }
 .cloud-sync-pill.state-saving,
+.cloud-sync-pill.state-pending,
 .cloud-sync-pill.state-checking {
   border-color: rgba(184, 113, 24, 0.24);
   background: rgba(184, 113, 24, 0.1);

@@ -5,6 +5,7 @@ const CLOUD_KEY_STORAGE = "familialens:v8-cloud-key";
 export type CloudSyncKind =
   | "locked"
   | "checking"
+  | "pending"
   | "saving"
   | "saved"
   | "local"

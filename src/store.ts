@@ -64,6 +64,8 @@ export type ViewMode = "timeline" | "tree" | "map" | "atlas";
 export type FocusMode = "all" | "ancestors" | "descendants";
 
 const MAX_HISTORY = 50;
+const LOCAL_SAVE_DEBOUNCE_MS = 250;
+const CLOUD_SAVE_DEBOUNCE_MS = 20_000;
 
 export type RelationshipResult =
   | { ok: true; eventId?: string }
@@ -232,16 +234,17 @@ function scheduleSave(
   if (saveTimer) clearTimeout(saveTimer);
   saveTimer = setTimeout(() => {
     saveSnapshot(data).catch(() => undefined);
-  }, 250);
+  }, LOCAL_SAVE_DEBOUNCE_MS);
 
   if (!hasCloudKey()) {
     setCloudSync?.(CLOUD_LOCKED);
     return;
   }
 
-  setCloudSync?.({ kind: "saving", message: "Saving to cloud" });
+  setCloudSync?.({ kind: "pending", message: "Cloud save pending" });
   if (cloudSaveTimer) clearTimeout(cloudSaveTimer);
   cloudSaveTimer = setTimeout(() => {
+    setCloudSync?.({ kind: "saving", message: "Saving to cloud" });
     saveCloudBackup(data)
       .then((backup) => {
         setCloudSync?.({
@@ -256,7 +259,7 @@ function scheduleSave(
           message: error instanceof Error ? error.message : "Cloud save failed"
         });
       });
-  }, 900);
+  }, CLOUD_SAVE_DEBOUNCE_MS);
 }
 
 // ─── Upsert helper for quick facts ───────────────────
@@ -498,6 +501,10 @@ export const useStore = create<Store>()((set, get) => {
       if (!hasCloudKey()) {
         set({ cloudSync: CLOUD_LOCKED });
         return;
+      }
+      if (cloudSaveTimer) {
+        clearTimeout(cloudSaveTimer);
+        cloudSaveTimer = null;
       }
       const snapshot = get().data;
       set({ cloudSync: { kind: "saving", message: "Saving to cloud" } });

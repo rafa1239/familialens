@@ -357,6 +357,7 @@ export function TopBar({
 
 function cloudLabel(kind: string): string {
   if (kind === "saved") return "Cloud saved";
+  if (kind === "pending") return "Cloud pending";
   if (kind === "saving") return "Cloud saving";
   if (kind === "checking") return "Cloud checking";
   if (kind === "error") return "Cloud error";
