@@ -5425,8 +5425,11 @@ button.big:hover {
 .fact-row-header {
   display: flex;
   align-items: center;
-  justify-content: space-between;
   gap: 8px;
+}
+
+.fact-row-header .ghost.small {
+  margin-left: auto;
 }
 
 .fact-label {
@@ -5492,6 +5495,74 @@ button.big:hover {
   font-size: 0.58rem;
   font-weight: 800;
   pointer-events: none;
+}
+
+.date-hint-wrap {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+}
+
+.date-hint-trigger {
+  width: 18px;
+  height: 18px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  border-radius: 999px;
+  border-color: var(--border);
+  background: var(--bg-surface);
+  color: var(--ink-faint);
+  font-size: 0.64rem;
+  font-weight: 900;
+}
+
+.date-hint-trigger:hover,
+.date-hint-trigger:focus {
+  color: var(--accent);
+  border-color: rgba(184, 113, 24, 0.3);
+  background: var(--accent-soft);
+}
+
+.date-hint-popover {
+  position: absolute;
+  left: 50%;
+  top: calc(100% + 8px);
+  transform: translateX(-50%);
+  z-index: 30;
+  width: 164px;
+  display: none;
+  gap: 4px;
+  padding: 8px;
+  border: 1px solid var(--border-strong);
+  border-radius: 8px;
+  background: var(--bg-elevated);
+  box-shadow: var(--shadow-md);
+}
+
+.date-hint-popover::before {
+  content: "";
+  position: absolute;
+  left: 50%;
+  top: -5px;
+  width: 8px;
+  height: 8px;
+  transform: translateX(-50%) rotate(45deg);
+  background: var(--bg-elevated);
+  border-left: 1px solid var(--border-strong);
+  border-top: 1px solid var(--border-strong);
+}
+
+.date-hint-wrap:hover .date-hint-popover,
+.date-hint-wrap:focus-within .date-hint-popover {
+  display: grid;
+}
+
+.date-hint-popover span {
+  font-family: "JetBrains Mono", monospace;
+  font-size: 0.68rem;
+  color: var(--ink-muted);
 }
 
 /* Fact grid should not be centered like the rest of the header */

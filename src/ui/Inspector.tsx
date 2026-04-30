@@ -42,6 +42,27 @@ function datePrecisionLabel(value: string): string | null {
   return "Text";
 }
 
+function DateHint() {
+  return (
+    <span className="date-hint-wrap">
+      <button
+        type="button"
+        className="date-hint-trigger"
+        aria-label="Accepted date formats"
+      >
+        ?
+      </button>
+      <span className="date-hint-popover" role="tooltip">
+        <span>1950</span>
+        <span>03/1950</span>
+        <span>15/03/1950</span>
+        <span>c. 1950</span>
+        <span>before 1950</span>
+      </span>
+    </span>
+  );
+}
+
 // ═══════════════════════════════════════════════
 // Inspector root
 // ═══════════════════════════════════════════════
@@ -355,6 +376,7 @@ function PersonHeader({ person }: { person: Person }) {
             <div className="fact-row">
               <div className="fact-row-header">
                 <div className="fact-label">Born</div>
+                <DateHint />
                 <button className="ghost small" onClick={openBirthDetails}>
                   Details
                 </button>
@@ -369,7 +391,7 @@ function PersonHeader({ person }: { person: Person }) {
                     onKeyDown={(e) => {
                       if (e.key === "Enter") (e.target as HTMLInputElement).blur();
                     }}
-                    placeholder="1950, 15/03/1950, c. 1950"
+                    placeholder="date"
                     title="1950, 1950-03, 1950-03-15, 15/03/1950, c. 1950, before 1950"
                   />
                   {birthPrecision && (
@@ -392,6 +414,7 @@ function PersonHeader({ person }: { person: Person }) {
             <div className="fact-row">
               <div className="fact-row-header">
                 <div className="fact-label">Died</div>
+                <DateHint />
                 <button className="ghost small" onClick={openDeathDetails}>
                   Details
                 </button>
@@ -406,7 +429,7 @@ function PersonHeader({ person }: { person: Person }) {
                     onKeyDown={(e) => {
                       if (e.key === "Enter") (e.target as HTMLInputElement).blur();
                     }}
-                    placeholder="1950, 15/03/1950, c. 1950"
+                    placeholder="date"
                     title="1950, 1950-03, 1950-03-15, 15/03/1950, c. 1950, before 1950"
                   />
                   {deathPrecision && (
