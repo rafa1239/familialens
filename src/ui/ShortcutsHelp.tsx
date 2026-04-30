@@ -2,6 +2,8 @@
  * Keyboard shortcuts reference modal. Opened with `?`.
  */
 
+import { useEscapeKey } from "./useEscapeKey";
+
 type Shortcut = { keys: string[]; label: string };
 type Group = { title: string; shortcuts: Shortcut[] };
 
@@ -67,6 +69,8 @@ const groups: Group[] = [
 ];
 
 export function ShortcutsHelp({ onClose }: { onClose: () => void }) {
+  useEscapeKey(onClose);
+
   return (
     <div className="modal-backdrop" onClick={onClose}>
       <div

@@ -4,6 +4,7 @@ import { findRelationship } from "../pathfinder";
 import type { Person } from "../types";
 import { PhotoThumb } from "./PhotoThumb";
 import { PersonPicker, type PickerResult } from "./PersonPicker";
+import { useEscapeKey } from "./useEscapeKey";
 
 function initials(name: string): string {
   const parts = name.trim().split(/\s+/);
@@ -34,6 +35,8 @@ export function RelationshipFinder({
 
   const a = data.people[aId];
   const b = bId ? data.people[bId] : null;
+
+  useEscapeKey(onClose, !picker);
 
   const result = useMemo(() => {
     if (!bId) return null;

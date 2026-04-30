@@ -11,6 +11,7 @@ import {
 import { useStore } from "../store";
 import type { DataState, Gender, Person } from "../types";
 import { PhotoThumb } from "./PhotoThumb";
+import { useEscapeKey } from "./useEscapeKey";
 
 function initials(name: string): string {
   const parts = name.trim().split(/\s+/);
@@ -59,6 +60,8 @@ export function PersonPicker({
   const [newGender, setNewGender] = useState<Gender>("U");
   const inputRef = useRef<HTMLInputElement>(null);
   const anchor = anchorPersonId ? data.people[anchorPersonId] : null;
+
+  useEscapeKey(onCancel);
 
   useEffect(() => {
     inputRef.current?.focus();
@@ -135,6 +138,7 @@ export function PersonPicker({
   const handleKey = (e: React.KeyboardEvent) => {
     if (e.key === "Escape") {
       e.preventDefault();
+      e.stopPropagation();
       onCancel();
     } else if (e.key === "Enter") {
       e.preventDefault();

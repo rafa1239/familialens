@@ -4,6 +4,7 @@ import { findDuplicatePeople, type DuplicatePersonGroup } from "../peopleDedup";
 import { findBirthEvent, findDeathEvent } from "../relationships";
 import { yearOf } from "../dates";
 import { PhotoThumb } from "./PhotoThumb";
+import { useEscapeKey } from "./useEscapeKey";
 
 function initials(name: string): string {
   const parts = name.trim().split(/\s+/);
@@ -17,6 +18,8 @@ export function DuplicatesPanel({ onClose }: { onClose: () => void }) {
   const mergePeople = useStore((s) => s.mergePeople);
   const pushToast = useStore((s) => s.pushToast);
   const selectPerson = useStore((s) => s.selectPerson);
+
+  useEscapeKey(onClose);
 
   const groups = useMemo(() => findDuplicatePeople(data), [data]);
 

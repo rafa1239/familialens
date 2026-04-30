@@ -3,6 +3,7 @@ import { useStore } from "../store";
 import { computeStats } from "../stats";
 import { EVENT_META } from "../eventMeta";
 import { findDuplicatePeople } from "../peopleDedup";
+import { useEscapeKey } from "./useEscapeKey";
 
 export function StatsPanel({
   onClose,
@@ -14,6 +15,8 @@ export function StatsPanel({
   const data = useStore((s) => s.data);
   const stats = useMemo(() => computeStats(data), [data]);
   const duplicateGroups = useMemo(() => findDuplicatePeople(data), [data]);
+
+  useEscapeKey(onClose);
 
   const total =
     stats.demographics.living +

@@ -6,6 +6,7 @@ import {
   type PlaceAggregate,
   type DuplicateGroup
 } from "../places";
+import { useEscapeKey } from "./useEscapeKey";
 
 /**
  * Global places manager. Shows:
@@ -25,6 +26,8 @@ export function PlacesPanel({ onClose }: { onClose: () => void }) {
 
   const [editingName, setEditingName] = useState<string | null>(null);
   const [editingCoords, setEditingCoords] = useState<string | null>(null);
+
+  useEscapeKey(onClose);
 
   return (
     <div className="modal-backdrop" onClick={onClose}>
@@ -221,7 +224,11 @@ function PlaceRow({
             onChange={(e) => setNameDraft(e.target.value)}
             onKeyDown={(e) => {
               if (e.key === "Enter") onRename(nameDraft.trim() || place.name);
-              if (e.key === "Escape") onCancelRename();
+              if (e.key === "Escape") {
+                e.preventDefault();
+                e.stopPropagation();
+                onCancelRename();
+              }
             }}
           />
           <button className="primary small" onClick={() => onRename(nameDraft.trim() || place.name)}>
@@ -266,11 +273,25 @@ function PlaceRow({
             placeholder="Latitude"
             value={latDraft}
             onChange={(e) => setLatDraft(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Escape") {
+                e.preventDefault();
+                e.stopPropagation();
+                onCancelCoords();
+              }
+            }}
           />
           <input
             placeholder="Longitude"
             value={lonDraft}
             onChange={(e) => setLonDraft(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Escape") {
+                e.preventDefault();
+                e.stopPropagation();
+                onCancelCoords();
+              }
+            }}
           />
           <button
             className="primary small"

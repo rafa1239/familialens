@@ -22,7 +22,11 @@ export function ContextMenu({
       if (ref.current && !ref.current.contains(e.target as Node)) onClose();
     };
     const handleEsc = (e: KeyboardEvent) => {
-      if (e.key === "Escape") onClose();
+      if (e.key === "Escape") {
+        e.preventDefault();
+        e.stopPropagation();
+        onClose();
+      }
     };
     document.addEventListener("mousedown", handleOutside);
     document.addEventListener("keydown", handleEsc);

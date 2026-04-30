@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useStore } from "../store";
 import { search, type SearchResult } from "../search";
+import { useEscapeKey } from "./useEscapeKey";
 
 export function GlobalSearch({ onClose }: { onClose: () => void }) {
   const data = useStore((s) => s.data);
@@ -10,6 +11,8 @@ export function GlobalSearch({ onClose }: { onClose: () => void }) {
   const inputRef = useRef<HTMLInputElement>(null);
   const [query, setQuery] = useState("");
   const [activeIndex, setActiveIndex] = useState(0);
+
+  useEscapeKey(onClose);
 
   useEffect(() => {
     inputRef.current?.focus();
@@ -49,6 +52,7 @@ export function GlobalSearch({ onClose }: { onClose: () => void }) {
   const handleKey = (e: React.KeyboardEvent) => {
     if (e.key === "Escape") {
       e.preventDefault();
+      e.stopPropagation();
       onClose();
       return;
     }

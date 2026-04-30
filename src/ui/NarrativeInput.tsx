@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useStore } from "../store";
 import { parseNarrative, type ParsedStatement } from "../parseNarrative";
+import { useEscapeKey } from "./useEscapeKey";
 
 const EXAMPLE = `Maria Silva was born in 1898 in Lisbon.
 Maria's parents were João Silva and Ana Pereira.
@@ -29,6 +30,8 @@ export function NarrativeInput({ onClose }: { onClose: () => void }) {
   const [text, setText] = useState("");
   const [debouncedText, setDebouncedText] = useState("");
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+
+  useEscapeKey(onClose);
 
   // Focus on open
   useEffect(() => {
@@ -103,6 +106,7 @@ export function NarrativeInput({ onClose }: { onClose: () => void }) {
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === "Escape") {
       e.preventDefault();
+      e.stopPropagation();
       onClose();
       return;
     }
