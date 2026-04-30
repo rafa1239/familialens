@@ -30,6 +30,18 @@ function initials(name: string): string {
   return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
 }
 
+function datePrecisionLabel(value: string): string | null {
+  const parsed = parseDate(value);
+  if (!parsed) return null;
+  if (parsed.precision === "exact") return "Exact";
+  if (parsed.precision === "month") return "Month";
+  if (parsed.precision === "year") return "Year";
+  if (parsed.precision === "approx") return "Approx.";
+  if (parsed.precision === "before") return "Before";
+  if (parsed.precision === "after") return "After";
+  return "Text";
+}
+
 // ═══════════════════════════════════════════════
 // Inspector root
 // ═══════════════════════════════════════════════
@@ -133,6 +145,8 @@ function PersonHeader({ person }: { person: Person }) {
   const data = useStore((s) => s.data);
   const updatePerson = useStore((s) => s.updatePerson);
   const deletePerson = useStore((s) => s.deletePerson);
+  const addEvent = useStore((s) => s.addEvent);
+  const selectEvent = useStore((s) => s.selectEvent);
   const setBirthFact = useStore((s) => s.setBirthFact);
   const setDeathFact = useStore((s) => s.setDeathFact);
   const pushToast = useStore((s) => s.pushToast);
@@ -151,6 +165,8 @@ function PersonHeader({ person }: { person: Person }) {
   const [deathDate, setDeathDate] = useState(deathEvent?.date?.display ?? "");
   const [deathPlace, setDeathPlace] = useState(deathEvent?.place?.name ?? "");
   const [deathCoords, setDeathCoords] = useState<{ lat?: number; lon?: number } | null>(null);
+  const birthPrecision = datePrecisionLabel(birthDate);
+  const deathPrecision = datePrecisionLabel(deathDate);
 
   useEffect(() => {
     setBirthDate(birthEvent?.date?.display ?? "");
@@ -195,6 +211,40 @@ function PersonHeader({ person }: { person: Person }) {
       placeLat: deathCoords?.lat,
       placeLon: deathCoords?.lon
     });
+  };
+
+  const openBirthDetails = () => {
+    if (birthEvent) {
+      commitBirth();
+      selectEvent(birthEvent.id);
+      return;
+    }
+    const id = addEvent({
+      type: "birth",
+      people: [person.id],
+      date: parseDate(birthDate),
+      place: birthPlace.trim()
+        ? { name: birthPlace.trim(), lat: birthCoords?.lat, lon: birthCoords?.lon }
+        : undefined
+    });
+    selectEvent(id);
+  };
+
+  const openDeathDetails = () => {
+    if (deathEvent) {
+      commitDeath();
+      selectEvent(deathEvent.id);
+      return;
+    }
+    const id = addEvent({
+      type: "death",
+      people: [person.id],
+      date: parseDate(deathDate),
+      place: deathPlace.trim()
+        ? { name: deathPlace.trim(), lat: deathCoords?.lat, lon: deathCoords?.lon }
+        : undefined
+    });
+    selectEvent(id);
   };
 
   const handlePhotoUpload = async (file: File) => {
@@ -302,19 +352,31 @@ function PersonHeader({ person }: { person: Person }) {
 
           {/* Quick facts — inline editing of birth/death */}
           <div className="facts-grid">
-            <div className="fact-label">Born</div>
-            <div className="fact-inputs">
-              <input
-                className="fact-date"
-                value={birthDate}
-                onChange={(e) => setBirthDate(e.target.value)}
-                onBlur={commitBirth}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter") (e.target as HTMLInputElement).blur();
-                }}
-                placeholder="year"
-              />
-              <PlaceAutocomplete
+            <div className="fact-row">
+              <div className="fact-row-header">
+                <div className="fact-label">Born</div>
+                <button className="ghost small" onClick={openBirthDetails}>
+                  Details
+                </button>
+              </div>
+              <div className="fact-inputs">
+                <div className="fact-date-wrap">
+                  <input
+                    className="fact-date"
+                    value={birthDate}
+                    onChange={(e) => setBirthDate(e.target.value)}
+                    onBlur={commitBirth}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") (e.target as HTMLInputElement).blur();
+                    }}
+                    placeholder="1950, 15/03/1950, c. 1950"
+                    title="1950, 1950-03, 1950-03-15, 15/03/1950, c. 1950, before 1950"
+                  />
+                  {birthPrecision && (
+                    <span className="fact-date-badge">{birthPrecision}</span>
+                  )}
+                </div>
+                <PlaceAutocomplete
                 className="fact-place"
                 value={birthPlace}
                 onChange={(name, coords) => {
@@ -324,30 +386,44 @@ function PersonHeader({ person }: { person: Person }) {
                 onCommit={commitBirth}
                 placeholder="place"
               />
+              </div>
             </div>
 
-            <div className="fact-label">Died</div>
-            <div className="fact-inputs">
-              <input
-                className="fact-date"
-                value={deathDate}
-                onChange={(e) => setDeathDate(e.target.value)}
-                onBlur={commitDeath}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter") (e.target as HTMLInputElement).blur();
-                }}
-                placeholder="year"
-              />
-              <PlaceAutocomplete
-                className="fact-place"
-                value={deathPlace}
-                onChange={(name, coords) => {
-                  setDeathPlace(name);
-                  if (coords) setDeathCoords(coords);
-                }}
-                onCommit={commitDeath}
-                placeholder="place"
-              />
+            <div className="fact-row">
+              <div className="fact-row-header">
+                <div className="fact-label">Died</div>
+                <button className="ghost small" onClick={openDeathDetails}>
+                  Details
+                </button>
+              </div>
+              <div className="fact-inputs">
+                <div className="fact-date-wrap">
+                  <input
+                    className="fact-date"
+                    value={deathDate}
+                    onChange={(e) => setDeathDate(e.target.value)}
+                    onBlur={commitDeath}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") (e.target as HTMLInputElement).blur();
+                    }}
+                    placeholder="1950, 15/03/1950, c. 1950"
+                    title="1950, 1950-03, 1950-03-15, 15/03/1950, c. 1950, before 1950"
+                  />
+                  {deathPrecision && (
+                    <span className="fact-date-badge">{deathPrecision}</span>
+                  )}
+                </div>
+                <PlaceAutocomplete
+                  className="fact-place"
+                  value={deathPlace}
+                  onChange={(name, coords) => {
+                    setDeathPlace(name);
+                    if (coords) setDeathCoords(coords);
+                  }}
+                  onCommit={commitDeath}
+                  placeholder="place"
+                />
+              </div>
             </div>
           </div>
 

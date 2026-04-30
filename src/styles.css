@@ -5402,15 +5402,31 @@ button.big:hover {
 /* ═══ Quick facts grid in person header ═══ */
 .facts-grid {
   display: grid;
-  grid-template-columns: 54px 1fr;
-  gap: 6px 10px;
+  grid-template-columns: 1fr;
+  gap: 10px;
   margin: 14px 0 6px;
   padding: 12px 14px;
   background: var(--bg);
   border: 1px solid var(--border);
   border-radius: 10px;
-  align-items: center;
   text-align: left;
+}
+
+.fact-row {
+  display: grid;
+  gap: 6px;
+}
+
+.fact-row + .fact-row {
+  padding-top: 10px;
+  border-top: 1px solid var(--border);
+}
+
+.fact-row-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
 }
 
 .fact-label {
@@ -5423,7 +5439,7 @@ button.big:hover {
 
 .fact-inputs {
   display: grid;
-  grid-template-columns: 72px 1fr;
+  grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.1fr);
   gap: 6px;
 }
 
@@ -5450,6 +5466,32 @@ button.big:hover {
 
 .fact-date {
   font-family: "JetBrains Mono", monospace;
+}
+
+.fact-date-wrap {
+  position: relative;
+  min-width: 0;
+}
+
+.fact-date-wrap input {
+  padding-right: 58px;
+}
+
+.fact-date-badge {
+  position: absolute;
+  right: 5px;
+  top: 50%;
+  transform: translateY(-50%);
+  max-width: 50px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  padding: 1px 5px;
+  border-radius: 999px;
+  background: var(--accent-soft);
+  color: var(--accent);
+  font-size: 0.58rem;
+  font-weight: 800;
+  pointer-events: none;
 }
 
 /* Fact grid should not be centered like the rest of the header */
@@ -5622,6 +5664,7 @@ button.big:hover {
   .header-avatar { width: 56px; height: 56px; font-size: 1rem; }
   .header-view h2 { font-size: 1.05rem; }
   .facts-grid { padding: 8px 10px; gap: 4px 8px; }
+  .fact-inputs { grid-template-columns: 1fr; }
 
   .atlas-year-huge { padding: 6px 12px; }
   .atlas-year-huge-value { font-size: 1.6rem; }

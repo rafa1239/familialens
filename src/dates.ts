@@ -75,6 +75,37 @@ export function parseDate(raw: string | undefined | null): EventDate | undefined
     }
   }
 
+  // European slash/dot date: DD/MM/YYYY or DD.MM.YYYY
+  const dmyNumeric = trimmed.match(/^(\d{1,2})[/.](\d{1,2})[/.](\d{4})$/);
+  if (dmyNumeric) {
+    const day = Number(dmyNumeric[1]);
+    const month = Number(dmyNumeric[2]);
+    const year = Number(dmyNumeric[3]);
+    if (isValidYMD(year, month, day)) {
+      return {
+        display: formatExact(year, month, day),
+        iso: `${pad4(year)}-${pad2(month)}-${pad2(day)}`,
+        sortKey: year + (dayOfYear(year, month, day) - 1) / daysInYear(year),
+        precision: "exact"
+      };
+    }
+  }
+
+  // Numeric month/year: MM/YYYY or MM.YYYY
+  const myNumeric = trimmed.match(/^(\d{1,2})[/.](\d{4})$/);
+  if (myNumeric) {
+    const month = Number(myNumeric[1]);
+    const year = Number(myNumeric[2]);
+    if (month >= 1 && month <= 12) {
+      return {
+        display: `${MONTH_NAMES[month - 1]} ${year}`,
+        iso: `${pad4(year)}-${pad2(month)}`,
+        sortKey: year + (month - 1) / 12,
+        precision: "month"
+      };
+    }
+  }
+
   // Year only
   const y = trimmed.match(/^(\d{4})$/);
   if (y) {
@@ -87,10 +118,19 @@ export function parseDate(raw: string | undefined | null): EventDate | undefined
     };
   }
 
-  // Approximate: "c. 1890", "c.1890", "circa 1890", "~1890", "ca 1890"
-  const approx = trimmed.match(/^(?:c\.?|ca\.?|circa|~)\s*(\d{4})$/i);
+  // Approximate: "c. 1890", "circa 1890", "about 1890", "~1890", "1890?"
+  const approx = trimmed.match(/^(?:(?:c\.?|ca\.?|circa|abt\.?|about|around|~)\s*)?(\d{4})\??$/i);
   if (approx) {
     const year = Number(approx[1]);
+    const plainYear = /^\d{4}$/.test(trimmed);
+    if (plainYear) {
+      return {
+        display: String(year),
+        iso: pad4(year),
+        sortKey: year,
+        precision: "year"
+      };
+    }
     return {
       display: `c. ${year}`,
       iso: pad4(year),

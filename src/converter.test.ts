@@ -84,6 +84,17 @@ describe("parseDate", () => {
     expect(d.sortKey).toBeCloseTo(1950 + 73 / 365, 4);
   });
 
+  it("parses numeric European dates", () => {
+    const exact = parseDate("15/03/1950")!;
+    expect(exact.precision).toBe("exact");
+    expect(exact.iso).toBe("1950-03-15");
+    expect(exact.display).toBe("15 March 1950");
+
+    const month = parseDate("03/1950")!;
+    expect(month.precision).toBe("month");
+    expect(month.iso).toBe("1950-03");
+  });
+
   it("parses leap-year February dates", () => {
     const d = parseDate("2000-02-29")!;
     expect(d.precision).toBe("exact");
@@ -98,7 +109,7 @@ describe("parseDate", () => {
   });
 
   it("parses circa notations", () => {
-    for (const input of ["c. 1890", "c.1890", "circa 1890", "~1890", "ca 1890", "ca. 1890"]) {
+    for (const input of ["c. 1890", "c.1890", "circa 1890", "~1890", "ca 1890", "ca. 1890", "about 1890", "1890?"]) {
       const d = parseDate(input);
       expect(d, `input=${input}`).toBeDefined();
       expect(d!.precision).toBe("approx");
