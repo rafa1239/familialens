@@ -16,6 +16,7 @@ import { DuplicatesPanel } from "./ui/DuplicatesPanel";
 import { GlobalSearch } from "./ui/GlobalSearch";
 import { ShortcutsHelp } from "./ui/ShortcutsHelp";
 import { NarrativeInput } from "./ui/NarrativeInput";
+import { useThemePreference } from "./ui/useThemePreference";
 import {
   getChildren,
   getParents,
@@ -40,6 +41,7 @@ export function App() {
   const [searchOpen, setSearchOpen] = useState(false);
   const [helpOpen, setHelpOpen] = useState(false);
   const [narrativeOpen, setNarrativeOpen] = useState(false);
+  const theme = useThemePreference();
 
   useEffect(() => {
     init();
@@ -184,6 +186,9 @@ export function App() {
           onOpenStats={() => setStatsOpen(true)}
           onOpenSearch={() => setSearchOpen(true)}
           onOpenNarrative={() => setNarrativeOpen(true)}
+          themePreference={theme.preference}
+          resolvedTheme={theme.resolvedTheme}
+          onCycleTheme={theme.cycleTheme}
         />
         <EmptyWorkspace onOpenNarrative={() => setNarrativeOpen(true)} />
         <Toasts />
@@ -214,6 +219,9 @@ export function App() {
         onOpenStats={() => setStatsOpen(true)}
         onOpenSearch={() => setSearchOpen(true)}
         onOpenNarrative={() => setNarrativeOpen(true)}
+        themePreference={theme.preference}
+        resolvedTheme={theme.resolvedTheme}
+        onCycleTheme={theme.cycleTheme}
       />
       <div className="workspace">
         <PeopleList />

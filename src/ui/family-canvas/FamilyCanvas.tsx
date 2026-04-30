@@ -33,6 +33,7 @@ import {
   pointInsideBounds,
   useCanvasViewport,
   worldRectFromView,
+  zoomAt,
   type CanvasSize,
   type CanvasView
 } from "./useCanvasViewport";
@@ -114,6 +115,7 @@ export function FamilyCanvas() {
   const [size, setSize] = useState<CanvasSize>({ width: 0, height: 0 });
   const [pan, setPan] = useState<PanState | null>(null);
   const [nodeDrag, setNodeDrag] = useState<NodeDragState | null>(null);
+  const [isZooming, setIsZooming] = useState(false);
   const [frameRate, setFrameRate] = useState<number | null>(null);
   const [contextMenu, setContextMenu] = useState<{
     x: number;
@@ -122,6 +124,13 @@ export function FamilyCanvas() {
   } | null>(null);
   const [picker, setPicker] = useState<{ personId: string; relation: Relation } | null>(null);
   const { view, setView, zoomAtPoint, fitToBounds, centerOnPoint } = useCanvasViewport();
+  const viewRef = useRef<CanvasView>(view);
+  const zoomingRef = useRef(false);
+  const zoomEndTimeoutRef = useRef<number | null>(null);
+
+  useEffect(() => {
+    viewRef.current = view;
+  }, [view]);
 
   useEffect(() => {
     if (!shouldShowPerfMeter()) return;
@@ -151,7 +160,10 @@ export function FamilyCanvas() {
       pendingViewRef.current = null;
       pendingDraftRef.current = null;
 
-      if (nextView) setView(nextView);
+      if (nextView) {
+        viewRef.current = nextView;
+        setView(nextView);
+      }
       if (nextDraft) {
         setDraftPositions((current) => ({
           ...current,
@@ -168,6 +180,7 @@ export function FamilyCanvas() {
   useEffect(() => {
     return () => {
       if (rafRef.current != null) window.cancelAnimationFrame(rafRef.current);
+      if (zoomEndTimeoutRef.current != null) window.clearTimeout(zoomEndTimeoutRef.current);
     };
   }, []);
 
@@ -239,26 +252,48 @@ export function FamilyCanvas() {
     [data, selectedPersonId]
   );
 
+  const markZooming = () => {
+    if (!zoomingRef.current) {
+      zoomingRef.current = true;
+      setIsZooming(true);
+    }
+    if (zoomEndTimeoutRef.current != null) {
+      window.clearTimeout(zoomEndTimeoutRef.current);
+    }
+    zoomEndTimeoutRef.current = window.setTimeout(() => {
+      zoomingRef.current = false;
+      zoomEndTimeoutRef.current = null;
+      setIsZooming(false);
+    }, 120);
+  };
+
   const handleWheel = (event: WheelEvent<HTMLDivElement>) => {
     event.preventDefault();
     const rect = containerRef.current?.getBoundingClientRect();
     if (!rect) return;
-    zoomAtPoint(
+    markZooming();
+    const baseView = pendingViewRef.current ?? viewRef.current;
+    const nextView = zoomAt(
+      baseView,
       { x: event.clientX - rect.left, y: event.clientY - rect.top },
-      event.deltaY > 0 ? 0.9 : 1.1
+      Math.exp(-event.deltaY * 0.0012)
     );
+    pendingViewRef.current = nextView;
+    viewRef.current = nextView;
+    scheduleInteractionFrame();
   };
 
   const handlePointerDown = (event: PointerEvent<HTMLDivElement>) => {
     if (event.button !== 0) return;
     event.preventDefault();
     event.currentTarget.setPointerCapture?.(event.pointerId);
+    const currentView = pendingViewRef.current ?? viewRef.current;
     setPan({
       pointerId: event.pointerId,
       startX: event.clientX,
       startY: event.clientY,
-      baseX: view.x,
-      baseY: view.y
+      baseX: currentView.x,
+      baseY: currentView.y
     });
     panMovedRef.current = false;
   };
@@ -266,8 +301,9 @@ export function FamilyCanvas() {
   const handlePointerMove = (event: PointerEvent<HTMLDivElement>) => {
     if (nodeDrag?.pointerId === event.pointerId) {
       event.preventDefault();
-      const dx = (event.clientX - nodeDrag.startX) / view.zoom;
-      const dy = (event.clientY - nodeDrag.startY) / view.zoom;
+      const zoom = viewRef.current.zoom;
+      const dx = (event.clientX - nodeDrag.startX) / zoom;
+      const dy = (event.clientY - nodeDrag.startY) / zoom;
       if (Math.hypot(event.clientX - nodeDrag.startX, event.clientY - nodeDrag.startY) > 3) {
         nodeDragMovedRef.current = true;
       }
@@ -287,10 +323,11 @@ export function FamilyCanvas() {
     const dy = event.clientY - pan.startY;
     if (Math.hypot(dx, dy) > 3) panMovedRef.current = true;
     pendingViewRef.current = {
-      ...view,
+      ...viewRef.current,
       x: pan.baseX + dx,
       y: pan.baseY + dy
     };
+    viewRef.current = pendingViewRef.current;
     scheduleInteractionFrame();
   };
 
@@ -313,6 +350,7 @@ export function FamilyCanvas() {
     }
 
     if (pan?.pointerId === event.pointerId && pendingViewRef.current) {
+      viewRef.current = pendingViewRef.current;
       setView(pendingViewRef.current);
       pendingViewRef.current = null;
     }
@@ -438,7 +476,7 @@ export function FamilyCanvas() {
   return (
     <div
       ref={containerRef}
-      className={`family-canvas ${pan ? "panning" : ""} ${nodeDrag ? "dragging-node" : ""}`}
+      className={`family-canvas ${pan ? "panning" : ""} ${nodeDrag ? "dragging-node" : ""} ${isZooming ? "zooming" : ""}`}
       onWheel={handleWheel}
       onPointerDown={handlePointerDown}
       onPointerMove={handlePointerMove}
@@ -596,11 +634,15 @@ export function FamilyCanvas() {
         view={view}
         size={size}
         onNavigate={(x, y) => {
-          setView((current) => ({
-            ...current,
-            x: size.width / 2 - x * current.zoom,
-            y: size.height / 2 - y * current.zoom
-          }));
+          setView((current) => {
+            const next = {
+              ...current,
+              x: size.width / 2 - x * current.zoom,
+              y: size.height / 2 - y * current.zoom
+            };
+            viewRef.current = next;
+            return next;
+          });
         }}
       />
 

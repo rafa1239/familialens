@@ -9,6 +9,8 @@
   --bg-hover: rgba(120, 90, 60, 0.07);
   --bg-selected: rgba(192, 122, 32, 0.1);
   --bg-panel: #faf7f1;
+  --bg-glass: rgba(255, 255, 255, 0.86);
+  --bg-glass-strong: rgba(255, 255, 255, 0.94);
 
   --ink: #1e1a15;
   --ink-muted: #635a4d;
@@ -30,14 +32,71 @@
   --female: #b84e6e;
   --unknown: #7e786e;
 
+  --canvas-dot: rgba(36, 127, 117, 0.13);
+  --canvas-card: rgba(255, 255, 255, 0.96);
+  --canvas-card-stroke: rgba(84, 68, 45, 0.2);
+  --canvas-edge: rgba(65, 78, 70, 0.34);
+  --canvas-edge-near: rgba(36, 127, 117, 0.52);
+  --canvas-couple: rgba(36, 127, 117, 0.08);
+  --canvas-couple-stroke: rgba(36, 127, 117, 0.22);
+  --modal-scrim: rgba(16, 12, 6, 0.5);
+
   --shadow-sm: 0 1px 3px rgba(40, 28, 12, 0.07), 0 1px 2px rgba(40, 28, 12, 0.04);
   --shadow-md: 0 4px 16px rgba(40, 28, 12, 0.1), 0 1px 4px rgba(40, 28, 12, 0.06);
   --shadow-lg: 0 12px 40px rgba(40, 28, 12, 0.14), 0 4px 12px rgba(40, 28, 12, 0.06);
   --shadow-panel: 2px 0 12px rgba(40, 28, 12, 0.06);
 }
 
+[data-theme="night"] {
+  --bg: #101411;
+  --bg-surface: #151d18;
+  --bg-elevated: #1b251f;
+  --bg-input: #101915;
+  --bg-hover: rgba(154, 184, 154, 0.1);
+  --bg-selected: rgba(216, 149, 57, 0.16);
+  --bg-panel: #141b17;
+  --bg-glass: rgba(21, 29, 24, 0.88);
+  --bg-glass-strong: rgba(27, 37, 31, 0.96);
+
+  --ink: #f1eee6;
+  --ink-muted: #c2b9aa;
+  --ink-faint: #858074;
+
+  --accent: #d89539;
+  --accent-hover: #efb459;
+  --accent-soft: rgba(216, 149, 57, 0.16);
+  --accent-teal: #65b8a9;
+  --accent-teal-soft: rgba(101, 184, 169, 0.14);
+
+  --border: rgba(231, 215, 178, 0.12);
+  --border-strong: rgba(231, 215, 178, 0.22);
+
+  --danger: #e07867;
+  --danger-soft: rgba(224, 120, 103, 0.12);
+
+  --male: #6095ce;
+  --female: #d36a8b;
+  --unknown: #928b7f;
+
+  --canvas-dot: rgba(101, 184, 169, 0.12);
+  --canvas-card: rgba(27, 37, 31, 0.96);
+  --canvas-card-stroke: rgba(231, 215, 178, 0.18);
+  --canvas-edge: rgba(173, 191, 170, 0.24);
+  --canvas-edge-near: rgba(101, 184, 169, 0.6);
+  --canvas-couple: rgba(101, 184, 169, 0.08);
+  --canvas-couple-stroke: rgba(101, 184, 169, 0.24);
+  --modal-scrim: rgba(2, 4, 3, 0.72);
+
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.26), 0 0 0 1px rgba(255, 255, 255, 0.02);
+  --shadow-md: 0 8px 22px rgba(0, 0, 0, 0.32), 0 0 0 1px rgba(255, 255, 255, 0.025);
+  --shadow-lg: 0 22px 58px rgba(0, 0, 0, 0.48), 0 0 0 1px rgba(255, 255, 255, 0.03);
+  --shadow-panel: 2px 0 16px rgba(0, 0, 0, 0.28);
+}
+
 /* ═══ Reset ═══ */
 *, *::before, *::after { box-sizing: border-box; }
+html { color-scheme: light; }
+html[data-theme="night"] { color-scheme: dark; }
 html, body, #root { height: 100%; margin: 0; }
 
 body {
@@ -194,7 +253,7 @@ button, input, select, textarea { font: inherit; color: inherit; }
   height: 52px;
   background: var(--bg-elevated);
   border-bottom: 1px solid var(--border);
-  box-shadow: 0 1px 4px rgba(40, 28, 12, 0.06);
+  box-shadow: var(--shadow-sm);
   z-index: 5;
 }
 
@@ -278,6 +337,15 @@ button, input, select, textarea { font: inherit; color: inherit; }
   border-color: var(--border);
   background: var(--bg-surface);
   color: var(--ink-muted);
+}
+
+.theme-toggle {
+  min-width: 52px;
+}
+.theme-toggle.state-night {
+  border-color: rgba(216, 149, 57, 0.24);
+  background: var(--accent-soft);
+  color: var(--accent);
 }
 
 /* ─── Export dropdown ─── */
@@ -887,8 +955,9 @@ textarea { resize: vertical; min-height: 56px; font-family: inherit; }
   cursor: grab;
   touch-action: none;
   user-select: none;
+  contain: layout paint style;
   background:
-    radial-gradient(circle at 18px 18px, rgba(36, 127, 117, 0.13) 1px, transparent 1.4px),
+    radial-gradient(circle at 18px 18px, var(--canvas-dot) 1px, transparent 1.4px),
     linear-gradient(180deg, var(--bg-surface) 0%, var(--bg) 100%);
   background-size: 24px 24px, 100% 100%;
 }
@@ -899,6 +968,11 @@ textarea { resize: vertical; min-height: 56px; font-family: inherit; }
 .family-canvas.panning .family-node-card,
 .family-canvas.panning .family-node-pin circle,
 .family-canvas.panning .family-node-port rect,
+.family-canvas.zooming .family-couple-bg,
+.family-canvas.zooming .family-edge.parent,
+.family-canvas.zooming .family-node-card,
+.family-canvas.zooming .family-node-pin circle,
+.family-canvas.zooming .family-node-port rect,
 .family-canvas.dragging-node .family-couple-bg,
 .family-canvas.dragging-node .family-edge.parent,
 .family-canvas.dragging-node .family-node-card,
@@ -908,6 +982,7 @@ textarea { resize: vertical; min-height: 56px; font-family: inherit; }
   transition: none;
 }
 .family-canvas.panning .family-node,
+.family-canvas.zooming .family-node,
 .family-canvas.dragging-node .family-node {
   transition: none;
 }
@@ -921,6 +996,7 @@ textarea { resize: vertical; min-height: 56px; font-family: inherit; }
   width: 100%;
   height: 100%;
   display: block;
+  will-change: transform;
 }
 
 .family-canvas-meta {
@@ -935,7 +1011,7 @@ textarea { resize: vertical; min-height: 56px; font-family: inherit; }
   padding: 5px 10px;
   border: 1px solid var(--border);
   border-radius: 8px;
-  background: rgba(255, 255, 255, 0.82);
+  background: var(--bg-glass);
   color: var(--ink-muted);
   box-shadow: var(--shadow-sm);
   font-size: 0.74rem;
@@ -960,7 +1036,7 @@ textarea { resize: vertical; min-height: 56px; font-family: inherit; }
   padding: 4px 8px;
   border: 1px solid rgba(36, 127, 117, 0.2);
   border-radius: 7px;
-  background: rgba(255, 255, 255, 0.78);
+  background: var(--bg-glass);
   color: var(--accent-teal);
   box-shadow: var(--shadow-sm);
   font-family: "JetBrains Mono", monospace;
@@ -982,7 +1058,7 @@ textarea { resize: vertical; min-height: 56px; font-family: inherit; }
   padding: 5px 10px;
   border: 1px solid rgba(36, 127, 117, 0.22);
   border-radius: 8px;
-  background: rgba(255, 255, 255, 0.86);
+  background: var(--bg-glass);
   color: var(--ink-muted);
   box-shadow: var(--shadow-sm);
   font-size: 0.74rem;
@@ -1015,7 +1091,7 @@ textarea { resize: vertical; min-height: 56px; font-family: inherit; }
   padding: 4px;
   border: 1px solid var(--border);
   border-radius: 9px;
-  background: rgba(255, 255, 255, 0.86);
+  background: var(--bg-glass);
   box-shadow: var(--shadow-sm);
 }
 .family-canvas-controls button {
@@ -1039,7 +1115,7 @@ textarea { resize: vertical; min-height: 56px; font-family: inherit; }
   padding: 6px 8px 6px 12px;
   border: 1px solid rgba(36, 127, 117, 0.22);
   border-radius: 999px;
-  background: rgba(255, 255, 255, 0.9);
+  background: var(--bg-glass-strong);
   color: var(--accent-teal);
   box-shadow: var(--shadow-sm);
   font-size: 0.76rem;
@@ -1061,8 +1137,8 @@ textarea { resize: vertical; min-height: 56px; font-family: inherit; }
 }
 
 .family-couple-bg {
-  fill: rgba(36, 127, 117, 0.08);
-  stroke: rgba(36, 127, 117, 0.22);
+  fill: var(--canvas-couple);
+  stroke: var(--canvas-couple-stroke);
   stroke-width: 1.4;
   transition: opacity 140ms ease, stroke 140ms ease, fill 140ms ease;
 }
@@ -1081,7 +1157,7 @@ textarea { resize: vertical; min-height: 56px; font-family: inherit; }
   stroke-linejoin: round;
 }
 .family-edge.parent {
-  stroke: rgba(65, 78, 70, 0.34);
+  stroke: var(--canvas-edge);
   stroke-width: 2.4px;
   transition: opacity 140ms ease, stroke 140ms ease, stroke-width 140ms ease;
 }
@@ -1090,7 +1166,7 @@ textarea { resize: vertical; min-height: 56px; font-family: inherit; }
   stroke-width: 3.4px;
 }
 .family-edge.parent.kin-near {
-  stroke: rgba(36, 127, 117, 0.52);
+  stroke: var(--canvas-edge-near);
   stroke-width: 2.8px;
 }
 .family-edge.parent.kin-muted {
@@ -1113,8 +1189,8 @@ textarea { resize: vertical; min-height: 56px; font-family: inherit; }
   filter: none;
 }
 .family-node-card {
-  fill: rgba(255, 255, 255, 0.96);
-  stroke: rgba(84, 68, 45, 0.2);
+  fill: var(--canvas-card);
+  stroke: var(--canvas-card-stroke);
   stroke-width: 1.2;
   filter: drop-shadow(0 2px 7px rgba(40, 28, 12, 0.11));
   transition: stroke 150ms ease, filter 150ms ease;
@@ -1228,7 +1304,7 @@ textarea { resize: vertical; min-height: 56px; font-family: inherit; }
   cursor: pointer;
 }
 .family-node-port rect {
-  fill: rgba(255, 255, 255, 0.96);
+  fill: var(--bg-glass-strong);
   stroke: rgba(36, 127, 117, 0.34);
   stroke-width: 1;
   filter: drop-shadow(0 2px 7px rgba(40, 28, 12, 0.16));
@@ -1262,7 +1338,7 @@ textarea { resize: vertical; min-height: 56px; font-family: inherit; }
   border: 1px solid var(--border);
   border-radius: 10px;
   overflow: hidden;
-  background: rgba(255, 255, 255, 0.88);
+  background: var(--bg-glass);
   box-shadow: var(--shadow-md);
 }
 .family-minimap svg {
@@ -1271,7 +1347,7 @@ textarea { resize: vertical; min-height: 56px; font-family: inherit; }
   display: block;
   cursor: crosshair;
 }
-.family-minimap-bg { fill: rgba(248, 245, 239, 0.8); }
+.family-minimap-bg { fill: var(--bg-surface); }
 .family-minimap-node {
   opacity: 0.6;
 }
@@ -1300,7 +1376,7 @@ textarea { resize: vertical; min-height: 56px; font-family: inherit; }
   padding: 12px;
   border: 1px solid var(--border);
   border-radius: 10px;
-  background: rgba(255, 255, 255, 0.9);
+  background: var(--bg-glass-strong);
   box-shadow: var(--shadow-lg);
   display: flex;
   flex-direction: column;
@@ -4903,7 +4979,7 @@ button.big:hover {
 .modal-backdrop {
   position: fixed;
   inset: 0;
-  background: rgba(16, 12, 6, 0.5);
+  background: var(--modal-scrim);
   backdrop-filter: blur(6px);
   -webkit-backdrop-filter: blur(6px);
   display: flex;
