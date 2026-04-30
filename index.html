@@ -3,18 +3,15 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>FamiliaLens v8</title>
+    <meta name="description" content="FamiliaLens online family timeline and relationship canvas." />
+    <meta name="theme-color" media="(prefers-color-scheme: light)" content="#eee9df" />
+    <meta name="theme-color" media="(prefers-color-scheme: dark)" content="#101411" />
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+    <link rel="manifest" href="/site.webmanifest" />
+    <title>FamiliaLens</title>
   </head>
   <body>
     <div id="root"></div>
-    <!--
-      Three.js + globe.gl — loaded as non-module globals so the Atlas
-      view can do `window.Globe(container)` when the user navigates there.
-      They're ~1.7 MB combined but cached by the browser; lazy-loaded here
-      rather than imported as modules to keep the main bundle small.
-    -->
-    <script src="/vendor/three.min.js"></script>
-    <script src="/vendor/globe.gl.min.js"></script>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>

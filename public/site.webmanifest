@@ -1,0 +1,17 @@
+{
+  "name": "FamiliaLens",
+  "short_name": "FamiliaLens",
+  "start_url": "/familialens/",
+  "scope": "/familialens/",
+  "display": "standalone",
+  "background_color": "#101411",
+  "theme_color": "#d89539",
+  "icons": [
+    {
+      "src": "/familialens/favicon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}

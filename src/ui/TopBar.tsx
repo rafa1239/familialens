@@ -272,6 +272,7 @@ export function TopBar({
         <button
           className={`ghost theme-toggle state-${resolvedTheme}`}
           onClick={onCycleTheme}
+          aria-label={`Theme: ${themeTitle(themePreference, resolvedTheme)}`}
           title={`Theme: ${themeTitle(themePreference, resolvedTheme)}. Click to cycle system, night, and light.`}
         >
           {themeLabel(themePreference)}

@@ -1,10 +1,10 @@
 /**
- * Ambient declarations for libraries loaded via <script> tags in index.html.
+ * Ambient declarations for libraries loaded as Atlas-only global scripts.
  *
  * We use three.min.js and globe.gl.min.js from /public/vendor/ rather than
  * npm packages because they come as a matched pair from the TimeGlobe Atlas
- * project and we want to avoid peer-dependency drift. They expose `THREE`
- * and `Globe` as globals on the window.
+ * project and we want to avoid peer-dependency drift. AtlasView loads them
+ * on demand; they expose `THREE` and `Globe` as globals on the window.
  */
 
 // Minimal, pragmatic shape for globe.gl — only the pieces we actually use.

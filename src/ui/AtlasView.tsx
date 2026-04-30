@@ -108,6 +108,72 @@ const CINEMATIC_CHAPTERS: Chapter[] = [
 
 /** Module-level flag so the cinematic plays only once per page load. */
 let cinematicPlayed = false;
+let atlasLibrariesPromise: Promise<void> | null = null;
+
+function atlasLibrariesReady(): boolean {
+  return (
+    typeof window !== "undefined" &&
+    typeof window.Globe === "function" &&
+    !!window.THREE
+  );
+}
+
+function ensureAtlasLibraries(): Promise<void> {
+  if (atlasLibrariesReady()) return Promise.resolve();
+  if (!atlasLibrariesPromise) {
+    atlasLibrariesPromise = loadAtlasScript(assetUrl("/vendor/three.min.js"), "three")
+      .then(() => loadAtlasScript(assetUrl("/vendor/globe.gl.min.js"), "globe"))
+      .then(() => {
+        if (!atlasLibrariesReady()) {
+          throw new Error("Atlas globals were not registered.");
+        }
+      })
+      .catch((error) => {
+        atlasLibrariesPromise = null;
+        throw error;
+      });
+  }
+  return atlasLibrariesPromise;
+}
+
+function loadAtlasScript(src: string, id: string): Promise<void> {
+  return new Promise((resolve, reject) => {
+    const selector = `script[data-familialens-lib="${id}"]`;
+    const existing = document.querySelector<HTMLScriptElement>(selector);
+    if (existing?.dataset.loaded === "true") {
+      resolve();
+      return;
+    }
+    if (existing) {
+      existing.addEventListener("load", () => resolve(), { once: true });
+      existing.addEventListener(
+        "error",
+        () => reject(new Error(`Failed to load ${src}`)),
+        { once: true }
+      );
+      return;
+    }
+
+    const script = document.createElement("script");
+    script.src = src;
+    script.async = false;
+    script.dataset.familialensLib = id;
+    script.addEventListener(
+      "load",
+      () => {
+        script.dataset.loaded = "true";
+        resolve();
+      },
+      { once: true }
+    );
+    script.addEventListener(
+      "error",
+      () => reject(new Error(`Failed to load ${src}`)),
+      { once: true }
+    );
+    document.head.appendChild(script);
+  });
+}
 
 // ─── Component ──────────────────────────────────────
 
@@ -521,25 +587,16 @@ export function AtlasView() {
       resizeObserver.observe(el);
     };
 
-    // The vendor <script> may load after React mounts. Retry a few times.
-    let attempts = 0;
-    const check = () => {
-      if (cancelled) return;
-      const g = (window as unknown as { Globe?: () => GlobeInstance }).Globe;
-      if (typeof g === "function") {
-        init();
-        return;
-      }
-      attempts += 1;
-      if (attempts > 50) {
-        setLibError(
-          "Globe library didn't load in time. Check /vendor/globe.gl.min.js."
-        );
-        return;
-      }
-      setTimeout(check, 100);
-    };
-    check();
+    setLibError(null);
+    void ensureAtlasLibraries()
+      .then(() => {
+        if (!cancelled) init();
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setLibError("Globe library didn't load. Reload the page or check the console.");
+        }
+      });
 
     return () => {
       cancelled = true;
@@ -733,6 +790,12 @@ export function AtlasView() {
         {libError && (
           <div className="globe-error">
             <p>{libError}</p>
+          </div>
+        )}
+
+        {!globeReady && !libError && (
+          <div className="globe-loading">
+            Loading Atlas...
           </div>
         )}
 
