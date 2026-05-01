@@ -793,12 +793,6 @@ export function AtlasView() {
           </div>
         )}
 
-        {!globeReady && !libError && (
-          <div className="globe-loading">
-            Loading Atlas...
-          </div>
-        )}
-
         {/* Cinematic intro overlay */}
         {cinematicActive && (
           <div className="cinematic-overlay" onClick={dismissCinematic}>

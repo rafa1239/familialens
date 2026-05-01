@@ -4,26 +4,19 @@ import { convertV5toV7 } from "../converter";
 import { exportGedcom, parseGedcom } from "../gedcom";
 import { exportHtmlAlbum } from "../htmlAlbum";
 import { getPhotoUrl } from "../photos";
-import type { ResolvedTheme, ThemePreference } from "./useThemePreference";
 
 type TopBarProps = {
   onOpenPlaces: () => void;
   onOpenStats: () => void;
   onOpenSearch: () => void;
   onOpenNarrative: () => void;
-  themePreference: ThemePreference;
-  resolvedTheme: ResolvedTheme;
-  onCycleTheme: () => void;
 };
 
 export function TopBar({
   onOpenPlaces,
   onOpenStats,
   onOpenSearch,
-  onOpenNarrative,
-  themePreference,
-  resolvedTheme,
-  onCycleTheme
+  onOpenNarrative
 }: TopBarProps) {
   const data = useStore((s) => s.data);
   const importData = useStore((s) => s.importData);
@@ -270,14 +263,6 @@ export function TopBar({
       <div className="topbar-actions">
         {status && <span className="topbar-status">{status}</span>}
         <button
-          className={`ghost theme-toggle state-${resolvedTheme}`}
-          onClick={onCycleTheme}
-          aria-label={`Theme: ${themeTitle(themePreference, resolvedTheme)}`}
-          title={`Theme: ${themeTitle(themePreference, resolvedTheme)}. Click to cycle system, night, and light.`}
-        >
-          {themeLabel(themePreference)}
-        </button>
-        <button
           className={`cloud-sync-pill state-${cloudSync.kind}`}
           onClick={handleCloudClick}
           onContextMenu={(event) => {
@@ -375,15 +360,4 @@ function cloudLabel(kind: string): string {
   if (kind === "checking") return "Online checking";
   if (kind === "error") return "Cloud error";
   return "Signed out";
-}
-
-function themeLabel(preference: ThemePreference): string {
-  if (preference === "system") return "Auto";
-  if (preference === "night") return "Night";
-  return "Light";
-}
-
-function themeTitle(preference: ThemePreference, resolved: ResolvedTheme): string {
-  if (preference === "system") return `system (${resolved})`;
-  return preference;
 }
