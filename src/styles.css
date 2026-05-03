@@ -437,6 +437,10 @@ input:focus, select:focus, textarea:focus {
   border-color: var(--accent);
   background: var(--bg-elevated);
 }
+input[aria-invalid="true"] {
+  border-color: var(--danger);
+  box-shadow: 0 0 0 2px var(--danger-soft);
+}
 textarea { resize: vertical; min-height: 56px; font-family: inherit; }
 
 /* ═══ Sidebar ═══ */
