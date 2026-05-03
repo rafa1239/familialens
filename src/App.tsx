@@ -1,11 +1,9 @@
-import { useEffect, useState } from "react";
+import { lazy, Suspense, useEffect, useState } from "react";
 import { useStore } from "./store";
 import { TopBar } from "./ui/TopBar";
 import { PeopleList } from "./ui/PeopleList";
 import { Timeline } from "./ui/Timeline";
 import { TreeView } from "./ui/TreeView";
-import { MapView } from "./ui/MapView";
-import { AtlasView } from "./ui/AtlasView";
 import { Inspector } from "./ui/Inspector";
 import { Toasts } from "./ui/Toasts";
 import { AuthScreen } from "./ui/AuthScreen";
@@ -22,6 +20,13 @@ import {
   getParents,
   getSpouses
 } from "./relationships";
+
+const MapView = lazy(() =>
+  import("./ui/MapView").then((module) => ({ default: module.MapView }))
+);
+const AtlasView = lazy(() =>
+  import("./ui/AtlasView").then((module) => ({ default: module.AtlasView }))
+);
 
 export function App() {
   const init = useStore((s) => s.init);
@@ -221,8 +226,16 @@ export function App() {
         <PeopleList />
         {viewMode === "timeline" && <Timeline />}
         {viewMode === "tree" && <TreeView />}
-        {viewMode === "map" && <MapView />}
-        {viewMode === "atlas" && <AtlasView />}
+        {viewMode === "map" && (
+          <Suspense fallback={null}>
+            <MapView />
+          </Suspense>
+        )}
+        {viewMode === "atlas" && (
+          <Suspense fallback={null}>
+            <AtlasView />
+          </Suspense>
+        )}
         <Inspector />
       </div>
       {isDemo() && (
